@@ -97,6 +97,7 @@ function History() {
                       idea: p.idea,
                       domain: p.domain,
                       answers: p.answers,
+                      phases: p.phases ?? [],
                     })
                   }
                 >
