@@ -1,7 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import JSZip from "jszip";
-import { Check, Copy, Download, Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Check, Copy, Download, History, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ThoughtStream } from "@/components/ThoughtStream";
@@ -11,6 +10,8 @@ import {
   type BlueprintFile,
   type Survey,
 } from "@/lib/architect-client";
+import { downloadPackage, saveProject } from "@/lib/blueprint-store";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
