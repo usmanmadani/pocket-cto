@@ -1,13 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Check, Copy, Download, History, Loader2, Sparkles, Wand2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Download,
+  FileText,
+  History,
+  ListOrdered,
+  Loader2,
+  Sparkles,
+  Wand2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ThoughtStream } from "@/components/ThoughtStream";
 import {
   parseFiles,
+  parsePhases,
   streamPost,
   type BlueprintFile,
+  type BuildPhase,
   type Survey,
 } from "@/lib/architect-client";
 import { downloadPackage, saveProject } from "@/lib/blueprint-store";
@@ -53,9 +65,16 @@ function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [raw, setRaw] = useState("");
   const [activeFile, setActiveFile] = useState(0);
+  const [view, setView] = useState<"files" | "prompts">("files");
+  const [phaseRaw, setPhaseRaw] = useState("");
+  const [phaseBusy, setPhaseBusy] = useState(false);
+  const [copied, setCopied] = useState<number | null>(null);
+  const [doneP, setDoneP] = useState<Record<number, boolean>>({});
+  const savedIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const files: BlueprintFile[] = useMemo(() => parseFiles(raw), [raw]);
+  const phases: BuildPhase[] = useMemo(() => parsePhases(phaseRaw), [phaseRaw]);
   const current = files[Math.min(activeFile, Math.max(files.length - 1, 0))];
 
   const runSurvey = useCallback(async () => {
@@ -69,6 +88,7 @@ function Home() {
     setSurvey(null);
     setAnswers({});
     setRaw("");
+    setPhaseRaw("");
     setStage("survey");
     let json = "";
     await streamPost(
@@ -105,6 +125,9 @@ function Home() {
     setThoughts("");
     setRaw("");
     setActiveFile(0);
+    setPhaseRaw("");
+    setDoneP({});
+    setView("files");
     setStage("blueprint");
     const answerList = survey.questions.map((q) => ({
       question: q.question,
@@ -127,16 +150,68 @@ function Home() {
     });
     const generated = parseFiles(text);
     if (generated.length) {
-      saveProject({
+      const saved = saveProject({
         idea,
         domain: survey.domain,
         summary: survey.summary,
         answers: answerList,
         files: generated,
       });
+      savedIdRef.current = saved.id;
     }
     setBusy(false);
   }, [survey, answers, idea]);
+
+  const runPhases = useCallback(async () => {
+    if (!files.length) return;
+    const ctrl = new AbortController();
+    setPhaseBusy(true);
+    setError("");
+    setThoughts("");
+    setPhaseRaw("");
+    setView("prompts");
+    const answerList =
+      survey?.questions.map((q) => ({
+        question: q.question,
+        answer: answers[q.id] ?? "",
+      })) ?? [];
+    let text = "";
+    await streamPost(
+      "/api/phases",
+      { idea, domain: survey?.domain, answers: answerList, blueprint: raw },
+      (e) => {
+        if (e.type === "thought") setThoughts((t) => t + e.value);
+        else if (e.type === "text") {
+          text += e.value;
+          setPhaseRaw((r) => r + e.value);
+        } else if (e.type === "error") setError(e.value);
+      },
+      ctrl.signal,
+    ).catch((err: unknown) => {
+      if ((err as Error)?.name !== "AbortError") setError(String(err));
+    });
+    const built = parsePhases(text);
+    if (built.length && survey) {
+      const saved = saveProject({
+        id: savedIdRef.current ?? undefined,
+        idea,
+        domain: survey.domain,
+        summary: survey.summary,
+        answers: answerList,
+        files,
+        phases: built,
+      });
+      savedIdRef.current = saved.id;
+    }
+    setPhaseBusy(false);
+  }, [files, survey, answers, idea, raw]);
+
+  const copyPrompt = useCallback((p: BuildPhase) => {
+    void navigator.clipboard.writeText(p.prompt);
+    setCopied(p.number);
+    setDoneP((d) => ({ ...d, [p.number]: true }));
+    setTimeout(() => setCopied((c) => (c === p.number ? null : c)), 1500);
+  }, []);
 
   const downloadZip = useCallback(
     () =>
@@ -148,8 +223,9 @@ function Home() {
             question: q.question,
             answer: answers[q.id] ?? "",
           })) ?? [],
+        phases,
       }),
-    [files, survey, idea, answers],
+    [files, survey, idea, answers, phases],
   );
 
 
