@@ -74,6 +74,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
   const stream = new ReadableStream({
     async pull(controller) {
       const { done, value } = await reader.read();
+      console.log("[architect] read", done, value?.length);
       if (done) {
         controller.enqueue(encodeEvent({ type: "done" }));
         controller.close();
