@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as ApiBlueprintRouteImport } from './routes/api/blueprint'
+import { Route as ApiPhasesRouteImport } from './routes/api/phases'
 import { Route as ApiSurveyRouteImport } from './routes/api/survey'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const ApiBlueprintRoute = ApiBlueprintRouteImport.update({
   path: '/api/blueprint',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPhasesRoute = ApiPhasesRouteImport.update({
+  id: '/api/phases',
+  path: '/api/phases',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSurveyRoute = ApiSurveyRouteImport.update({
   id: '/api/survey',
   path: '/api/survey',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/api/blueprint': typeof ApiBlueprintRoute
+  '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/api/blueprint': typeof ApiBlueprintRoute
+  '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,28 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/history': typeof HistoryRoute
   '/api/blueprint': typeof ApiBlueprintRoute
+  '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/api/blueprint' | '/api/survey'
+  fullPaths: '/' | '/history' | '/api/blueprint' | '/api/phases' | '/api/survey'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/api/blueprint' | '/api/survey'
-  id: '__root__' | '/' | '/history' | '/api/blueprint' | '/api/survey'
+  to: '/' | '/history' | '/api/blueprint' | '/api/phases' | '/api/survey'
+  id:
+    | '__root__'
+    | '/'
+    | '/history'
+    | '/api/blueprint'
+    | '/api/phases'
+    | '/api/survey'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HistoryRoute: typeof HistoryRoute
   ApiBlueprintRoute: typeof ApiBlueprintRoute
+  ApiPhasesRoute: typeof ApiPhasesRoute
   ApiSurveyRoute: typeof ApiSurveyRoute
 }
 
@@ -92,6 +108,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBlueprintRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/phases': {
+      id: '/api/phases'
+      path: '/api/phases'
+      fullPath: '/api/phases'
+      preLoaderRoute: typeof ApiPhasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/survey': {
       id: '/api/survey'
       path: '/api/survey'
@@ -106,6 +129,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HistoryRoute: HistoryRoute,
   ApiBlueprintRoute: ApiBlueprintRoute,
+  ApiPhasesRoute: ApiPhasesRoute,
   ApiSurveyRoute: ApiSurveyRoute,
 }
 export const routeTree = rootRouteImport
