@@ -1,13 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Check, Copy, Download, History, Loader2, Sparkles, Wand2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Download,
+  FileText,
+  History,
+  ListOrdered,
+  Loader2,
+  Sparkles,
+  Wand2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ThoughtStream } from "@/components/ThoughtStream";
 import {
   parseFiles,
+  parsePhases,
   streamPost,
   type BlueprintFile,
+  type BuildPhase,
   type Survey,
 } from "@/lib/architect-client";
 import { downloadPackage, saveProject } from "@/lib/blueprint-store";
@@ -53,9 +65,16 @@ function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [raw, setRaw] = useState("");
   const [activeFile, setActiveFile] = useState(0);
+  const [view, setView] = useState<"files" | "prompts">("files");
+  const [phaseRaw, setPhaseRaw] = useState("");
+  const [phaseBusy, setPhaseBusy] = useState(false);
+  const [copied, setCopied] = useState<number | null>(null);
+  const [doneP, setDoneP] = useState<Record<number, boolean>>({});
+  const savedIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const files: BlueprintFile[] = useMemo(() => parseFiles(raw), [raw]);
+  const phases: BuildPhase[] = useMemo(() => parsePhases(phaseRaw), [phaseRaw]);
   const current = files[Math.min(activeFile, Math.max(files.length - 1, 0))];
 
   const runSurvey = useCallback(async () => {
@@ -69,6 +88,7 @@ function Home() {
     setSurvey(null);
     setAnswers({});
     setRaw("");
+    setPhaseRaw("");
     setStage("survey");
     let json = "";
     await streamPost(
@@ -105,6 +125,9 @@ function Home() {
     setThoughts("");
     setRaw("");
     setActiveFile(0);
+    setPhaseRaw("");
+    setDoneP({});
+    setView("files");
     setStage("blueprint");
     const answerList = survey.questions.map((q) => ({
       question: q.question,
@@ -127,16 +150,68 @@ function Home() {
     });
     const generated = parseFiles(text);
     if (generated.length) {
-      saveProject({
+      const saved = saveProject({
         idea,
         domain: survey.domain,
         summary: survey.summary,
         answers: answerList,
         files: generated,
       });
+      savedIdRef.current = saved.id;
     }
     setBusy(false);
   }, [survey, answers, idea]);
+
+  const runPhases = useCallback(async () => {
+    if (!files.length) return;
+    const ctrl = new AbortController();
+    setPhaseBusy(true);
+    setError("");
+    setThoughts("");
+    setPhaseRaw("");
+    setView("prompts");
+    const answerList =
+      survey?.questions.map((q) => ({
+        question: q.question,
+        answer: answers[q.id] ?? "",
+      })) ?? [];
+    let text = "";
+    await streamPost(
+      "/api/phases",
+      { idea, domain: survey?.domain, answers: answerList, blueprint: raw },
+      (e) => {
+        if (e.type === "thought") setThoughts((t) => t + e.value);
+        else if (e.type === "text") {
+          text += e.value;
+          setPhaseRaw((r) => r + e.value);
+        } else if (e.type === "error") setError(e.value);
+      },
+      ctrl.signal,
+    ).catch((err: unknown) => {
+      if ((err as Error)?.name !== "AbortError") setError(String(err));
+    });
+    const built = parsePhases(text);
+    if (built.length && survey) {
+      const saved = saveProject({
+        ...(savedIdRef.current ? { id: savedIdRef.current } : {}),
+        idea,
+        domain: survey.domain,
+        summary: survey.summary,
+        answers: answerList,
+        files,
+        phases: built,
+      });
+      savedIdRef.current = saved.id;
+    }
+    setPhaseBusy(false);
+  }, [files, survey, answers, idea, raw]);
+
+  const copyPrompt = useCallback((p: BuildPhase) => {
+    void navigator.clipboard.writeText(p.prompt);
+    setCopied(p.number);
+    setDoneP((d) => ({ ...d, [p.number]: true }));
+    setTimeout(() => setCopied((c) => (c === p.number ? null : c)), 1500);
+  }, []);
 
   const downloadZip = useCallback(
     () =>
@@ -148,8 +223,9 @@ function Home() {
             question: q.question,
             answer: answers[q.id] ?? "",
           })) ?? [],
+        phases,
       }),
-    [files, survey, idea, answers],
+    [files, survey, idea, answers, phases],
   );
 
 
@@ -217,7 +293,7 @@ function Home() {
           </div>
         )}
 
-        {stage !== "idea" && <ThoughtStream text={thoughts} active={busy} />}
+        {stage !== "idea" && <ThoughtStream text={thoughts} active={busy || phaseBusy} />}
 
         {survey && stage === "survey" && (
           <section className="space-y-5">
@@ -270,46 +346,148 @@ function Home() {
 
         {stage === "blueprint" && (
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
-                {files.map((f, i) => (
-                  <button
-                    key={f.name}
-                    onClick={() => setActiveFile(i)}
-                    className={`rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
-                      i === activeFile
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {f.name}
-                  </button>
-                ))}
-                {files.length === 0 && (
-                  <span className="font-mono text-xs text-muted-foreground">
-                    Compiling deliverables...
-                  </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setView("files")}
+                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
+                  view === "files"
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <FileText className="size-3.5" /> Blueprint files
+              </button>
+              <button
+                onClick={() => (phases.length ? setView("prompts") : runPhases())}
+                disabled={!files.length || busy || phaseBusy}
+                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
+                  view === "prompts"
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {phaseBusy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <ListOrdered className="size-3.5" />
                 )}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={!current}
-                  onClick={() => current && navigator.clipboard.writeText(current.content)}
-                >
-                  <Copy /> Copy file
-                </Button>
-                <Button size="sm" disabled={!files.length || busy} onClick={downloadZip}>
-                  <Download /> Download .zip
-                </Button>
-              </div>
+                Build prompts{phases.length ? ` (${phases.length})` : ""}
+              </button>
             </div>
 
-            <pre className="panel max-h-[70vh] overflow-auto p-5 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">
-              {current?.content ?? raw}
-              {busy && <span className="caret text-primary">▍</span>}
-            </pre>
+            {view === "files" && (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {files.map((f, i) => (
+                      <button
+                        key={f.name}
+                        onClick={() => setActiveFile(i)}
+                        className={`rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
+                          i === activeFile
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                    {files.length === 0 && (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        Compiling deliverables...
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={!current}
+                      onClick={() =>
+                        current && navigator.clipboard.writeText(current.content)
+                      }
+                    >
+                      <Copy /> Copy file
+                    </Button>
+                    <Button size="sm" disabled={!files.length || busy} onClick={downloadZip}>
+                      <Download /> Download .zip
+                    </Button>
+                  </div>
+                </div>
+
+                <pre className="panel max-h-[70vh] overflow-auto p-5 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">
+                  {current?.content ?? raw}
+                  {busy && <span className="caret text-primary">▍</span>}
+                </pre>
+              </>
+            )}
+
+            {view === "prompts" && (
+              <div className="space-y-4">
+                <div className="panel flex flex-wrap items-center justify-between gap-3 p-5">
+                  <div>
+                    <h2 className="font-display text-lg font-semibold">
+                      Phase-by-phase build prompts
+                    </h2>
+                    <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                      Copy each prompt in order into Lovable, Cursor, v0 or any AI builder.
+                      Finish a phase, then paste the next one — the whole product gets built
+                      section by section.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={phaseBusy || !files.length}
+                      onClick={runPhases}
+                    >
+                      {phaseBusy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      {phases.length ? "Regenerate" : "Generate prompts"}
+                    </Button>
+                    <Button size="sm" disabled={!phases.length} onClick={downloadZip}>
+                      <Download /> Download .zip
+                    </Button>
+                  </div>
+                </div>
+
+                {!phases.length && (
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {phaseBusy ? "Sequencing build phases..." : "No prompts generated yet."}
+                  </p>
+                )}
+
+                {phases.map((p) => (
+                  <article key={p.number} className="panel p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border font-mono text-xs ${
+                            doneP[p.number]
+                              ? "border-primary bg-primary/15 text-primary"
+                              : "border-border text-muted-foreground"
+                          }`}
+                        >
+                          {doneP[p.number] ? <Check className="size-3.5" /> : p.number}
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-medium">{p.title}</h3>
+                          <p className="text-xs text-muted-foreground">{p.outcome}</p>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="secondary" onClick={() => copyPrompt(p)}>
+                        {copied === p.number ? <Check /> : <Copy />}
+                        {copied === p.number ? "Copied" : "Copy prompt"}
+                      </Button>
+                    </div>
+                    <pre className="mt-4 max-h-72 overflow-auto rounded-md border border-border bg-background/40 p-4 font-mono text-[12px] leading-relaxed whitespace-pre-wrap">
+                      {p.prompt}
+                    </pre>
+                  </article>
+                ))}
+                {phaseBusy && <span className="caret font-mono text-primary">▍</span>}
+              </div>
+            )}
           </section>
         )}
       </div>

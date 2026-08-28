@@ -65,3 +65,25 @@ export function parseFiles(text: string): BlueprintFile[] {
   }
   return files;
 }
+
+export type BuildPhase = {
+  number: number;
+  title: string;
+  outcome: string;
+  prompt: string;
+};
+
+/** Splits streamed phase text on `===PHASE n :: title :: outcome===` markers. */
+export function parsePhases(text: string): BuildPhase[] {
+  const parts = text.split(/^===PHASE\s*(\d+)\s*::\s*(.*?)\s*::\s*(.*?)\s*===\s*$/gm);
+  const phases: BuildPhase[] = [];
+  for (let i = 1; i < parts.length; i += 4) {
+    phases.push({
+      number: Number(parts[i] ?? phases.length + 1),
+      title: (parts[i + 1] ?? "").trim(),
+      outcome: (parts[i + 2] ?? "").trim(),
+      prompt: (parts[i + 3] ?? "").trim(),
+    });
+  }
+  return phases;
+}
