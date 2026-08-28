@@ -10,33 +10,63 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiBlueprintRouteImport } from './routes/api/blueprint'
+import { Route as ApiPingRouteImport } from './routes/api/ping'
+import { Route as ApiSurveyRouteImport } from './routes/api/survey'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBlueprintRoute = ApiBlueprintRouteImport.update({
+  id: '/api/blueprint',
+  path: '/api/blueprint',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPingRoute = ApiPingRouteImport.update({
+  id: '/api/ping',
+  path: '/api/ping',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSurveyRoute = ApiSurveyRouteImport.update({
+  id: '/api/survey',
+  path: '/api/survey',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/blueprint': typeof ApiBlueprintRoute
+  '/api/ping': typeof ApiPingRoute
+  '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/blueprint': typeof ApiBlueprintRoute
+  '/api/ping': typeof ApiPingRoute
+  '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/blueprint': typeof ApiBlueprintRoute
+  '/api/ping': typeof ApiPingRoute
+  '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/blueprint' | '/api/ping' | '/api/survey'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/blueprint' | '/api/ping' | '/api/survey'
+  id: '__root__' | '/' | '/api/blueprint' | '/api/ping' | '/api/survey'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiBlueprintRoute: typeof ApiBlueprintRoute
+  ApiPingRoute: typeof ApiPingRoute
+  ApiSurveyRoute: typeof ApiSurveyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +78,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/blueprint': {
+      id: '/api/blueprint'
+      path: '/api/blueprint'
+      fullPath: '/api/blueprint'
+      preLoaderRoute: typeof ApiBlueprintRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ping': {
+      id: '/api/ping'
+      path: '/api/ping'
+      fullPath: '/api/ping'
+      preLoaderRoute: typeof ApiPingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/survey': {
+      id: '/api/survey'
+      path: '/api/survey'
+      fullPath: '/api/survey'
+      preLoaderRoute: typeof ApiSurveyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiBlueprintRoute: ApiBlueprintRoute,
+  ApiPingRoute: ApiPingRoute,
+  ApiSurveyRoute: ApiSurveyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
