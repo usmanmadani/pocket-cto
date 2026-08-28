@@ -44,7 +44,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
       "X-Lovable-AIG-SDK": "fetch",
     },
     body: JSON.stringify(body),
-    signal: opts.signal,
+    signal: opts.signal ?? null,
   });
 
   if (!upstream.ok || !upstream.body) {

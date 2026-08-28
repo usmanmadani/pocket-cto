@@ -14,7 +14,7 @@ export async function streamPost(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal,
+    signal: signal ?? null,
   });
   if (!res.ok || !res.body) {
     onEvent({ type: "error", value: (await res.text()) || "Request failed." });
@@ -61,7 +61,7 @@ export function parseFiles(text: string): BlueprintFile[] {
   const parts = text.split(/^===FILE:\s*(.+?)\s*===\s*$/gm);
   const files: BlueprintFile[] = [];
   for (let i = 1; i < parts.length; i += 2) {
-    files.push({ name: parts[i].trim(), content: (parts[i + 1] ?? "").trim() });
+    files.push({ name: (parts[i] ?? "").trim(), content: (parts[i + 1] ?? "").trim() });
   }
   return files;
 }
