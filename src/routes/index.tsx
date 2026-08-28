@@ -193,7 +193,7 @@ function Home() {
     const built = parsePhases(text);
     if (built.length && survey) {
       const saved = saveProject({
-        id: savedIdRef.current ?? undefined,
+        ...(savedIdRef.current ? { id: savedIdRef.current } : {}),
         idea,
         domain: survey.domain,
         summary: survey.summary,
