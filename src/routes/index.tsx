@@ -346,46 +346,148 @@ function Home() {
 
         {stage === "blueprint" && (
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
-                {files.map((f, i) => (
-                  <button
-                    key={f.name}
-                    onClick={() => setActiveFile(i)}
-                    className={`rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
-                      i === activeFile
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {f.name}
-                  </button>
-                ))}
-                {files.length === 0 && (
-                  <span className="font-mono text-xs text-muted-foreground">
-                    Compiling deliverables...
-                  </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setView("files")}
+                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
+                  view === "files"
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <FileText className="size-3.5" /> Blueprint files
+              </button>
+              <button
+                onClick={() => (phases.length ? setView("prompts") : runPhases())}
+                disabled={!files.length || busy || phaseBusy}
+                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
+                  view === "prompts"
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {phaseBusy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <ListOrdered className="size-3.5" />
                 )}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={!current}
-                  onClick={() => current && navigator.clipboard.writeText(current.content)}
-                >
-                  <Copy /> Copy file
-                </Button>
-                <Button size="sm" disabled={!files.length || busy} onClick={downloadZip}>
-                  <Download /> Download .zip
-                </Button>
-              </div>
+                Build prompts{phases.length ? ` (${phases.length})` : ""}
+              </button>
             </div>
 
-            <pre className="panel max-h-[70vh] overflow-auto p-5 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">
-              {current?.content ?? raw}
-              {busy && <span className="caret text-primary">▍</span>}
-            </pre>
+            {view === "files" && (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {files.map((f, i) => (
+                      <button
+                        key={f.name}
+                        onClick={() => setActiveFile(i)}
+                        className={`rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
+                          i === activeFile
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                    {files.length === 0 && (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        Compiling deliverables...
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={!current}
+                      onClick={() =>
+                        current && navigator.clipboard.writeText(current.content)
+                      }
+                    >
+                      <Copy /> Copy file
+                    </Button>
+                    <Button size="sm" disabled={!files.length || busy} onClick={downloadZip}>
+                      <Download /> Download .zip
+                    </Button>
+                  </div>
+                </div>
+
+                <pre className="panel max-h-[70vh] overflow-auto p-5 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">
+                  {current?.content ?? raw}
+                  {busy && <span className="caret text-primary">▍</span>}
+                </pre>
+              </>
+            )}
+
+            {view === "prompts" && (
+              <div className="space-y-4">
+                <div className="panel flex flex-wrap items-center justify-between gap-3 p-5">
+                  <div>
+                    <h2 className="font-display text-lg font-semibold">
+                      Phase-by-phase build prompts
+                    </h2>
+                    <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                      Copy each prompt in order into Lovable, Cursor, v0 or any AI builder.
+                      Finish a phase, then paste the next one — the whole product gets built
+                      section by section.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={phaseBusy || !files.length}
+                      onClick={runPhases}
+                    >
+                      {phaseBusy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      {phases.length ? "Regenerate" : "Generate prompts"}
+                    </Button>
+                    <Button size="sm" disabled={!phases.length} onClick={downloadZip}>
+                      <Download /> Download .zip
+                    </Button>
+                  </div>
+                </div>
+
+                {!phases.length && (
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {phaseBusy ? "Sequencing build phases..." : "No prompts generated yet."}
+                  </p>
+                )}
+
+                {phases.map((p) => (
+                  <article key={p.number} className="panel p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <span
+                          className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border font-mono text-xs ${
+                            doneP[p.number]
+                              ? "border-primary bg-primary/15 text-primary"
+                              : "border-border text-muted-foreground"
+                          }`}
+                        >
+                          {doneP[p.number] ? <Check className="size-3.5" /> : p.number}
+                        </span>
+                        <div>
+                          <h3 className="text-sm font-medium">{p.title}</h3>
+                          <p className="text-xs text-muted-foreground">{p.outcome}</p>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="secondary" onClick={() => copyPrompt(p)}>
+                        {copied === p.number ? <Check /> : <Copy />}
+                        {copied === p.number ? "Copied" : "Copy prompt"}
+                      </Button>
+                    </div>
+                    <pre className="mt-4 max-h-72 overflow-auto rounded-md border border-border bg-background/40 p-4 font-mono text-[12px] leading-relaxed whitespace-pre-wrap">
+                      {p.prompt}
+                    </pre>
+                  </article>
+                ))}
+                {phaseBusy && <span className="caret font-mono text-primary">▍</span>}
+              </div>
+            )}
           </section>
         )}
       </div>
