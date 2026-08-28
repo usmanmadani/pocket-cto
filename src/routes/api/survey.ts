@@ -58,7 +58,7 @@ export const Route = createFileRoute("/api/survey")({
           instructions: INSTRUCTIONS,
           input: `Software idea: ${idea.trim()}`,
           format: FORMAT,
-          effort: "low",
+          effort: "medium",
           signal: request.signal,
         });
       },
