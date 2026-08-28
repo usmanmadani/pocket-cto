@@ -293,7 +293,7 @@ function Home() {
           </div>
         )}
 
-        {stage !== "idea" && <ThoughtStream text={thoughts} active={busy} />}
+        {stage !== "idea" && <ThoughtStream text={thoughts} active={busy || phaseBusy} />}
 
         {survey && stage === "survey" && (
           <section className="space-y-5">
