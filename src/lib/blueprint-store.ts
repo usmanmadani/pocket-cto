@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import type { BlueprintFile, Survey } from "./architect-client";
+import type { BlueprintFile, BuildPhase, Survey } from "./architect-client";
 
 const KEY = "specengine.projects.v1";
 
@@ -11,6 +11,7 @@ export type SavedProject = {
   createdAt: string;
   answers: { question: string; answer: string }[];
   files: BlueprintFile[];
+  phases?: BuildPhase[];
 };
 
 export const CANONICAL_FILES = [
@@ -69,7 +70,12 @@ export function deleteProject(id: string) {
 export async function downloadPackage(
   files: BlueprintFile[],
   name: string,
-  meta?: { idea: string; domain: string; answers: { question: string; answer: string }[] },
+  meta?: {
+    idea: string;
+    domain: string;
+    answers: { question: string; answer: string }[];
+    phases?: BuildPhase[];
+  },
 ) {
   const zip = new JSZip();
   const folder = zip.folder(slugify(name)) ?? zip;
@@ -91,6 +97,31 @@ export async function downloadPackage(
       ].join("\n"),
     );
   }
+  const phases = meta?.phases ?? [];
+  if (phases.length) {
+    const prompts = folder.folder("BUILD_PROMPTS") ?? folder;
+    phases.forEach((p) => {
+      const file = `phase-${String(p.number).padStart(2, "0")}-${slugify(p.title)}.md`;
+      prompts.file(
+        file,
+        [`# Phase ${p.number} — ${p.title}`, "", `> ${p.outcome}`, "", p.prompt].join("\n"),
+      );
+    });
+    prompts.file(
+      "00_INDEX.md",
+      [
+        "# Build prompts",
+        "",
+        "Paste each prompt into your AI builder in order. Finish one phase before starting the next.",
+        "",
+        ...phases.map(
+          (p) =>
+            `${p.number}. **${p.title}** — ${p.outcome} (phase-${String(p.number).padStart(2, "0")}-${slugify(p.title)}.md)`,
+        ),
+      ].join("\n"),
+    );
+  }
+
   const blob = await zip.generateAsync({ type: "blob" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -100,4 +131,4 @@ export async function downloadPackage(
   URL.revokeObjectURL(url);
 }
 
-export type { Survey };
+export type { BuildPhase, Survey };
