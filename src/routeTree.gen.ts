@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiBlueprintRouteImport } from './routes/api/blueprint'
 import { Route as ApiPingRouteImport } from './routes/api/ping'
+import { Route as ApiPing2RouteImport } from './routes/api/ping2'
 import { Route as ApiSurveyRouteImport } from './routes/api/survey'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const ApiPingRoute = ApiPingRouteImport.update({
   path: '/api/ping',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPing2Route = ApiPing2RouteImport.update({
+  id: '/api/ping2',
+  path: '/api/ping2',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSurveyRoute = ApiSurveyRouteImport.update({
   id: '/api/survey',
   path: '/api/survey',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/blueprint': typeof ApiBlueprintRoute
   '/api/ping': typeof ApiPingRoute
+  '/api/ping2': typeof ApiPing2Route
   '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/blueprint': typeof ApiBlueprintRoute
   '/api/ping': typeof ApiPingRoute
+  '/api/ping2': typeof ApiPing2Route
   '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,28 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/blueprint': typeof ApiBlueprintRoute
   '/api/ping': typeof ApiPingRoute
+  '/api/ping2': typeof ApiPing2Route
   '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/blueprint' | '/api/ping' | '/api/survey'
+  fullPaths: '/' | '/api/blueprint' | '/api/ping' | '/api/ping2' | '/api/survey'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/blueprint' | '/api/ping' | '/api/survey'
-  id: '__root__' | '/' | '/api/blueprint' | '/api/ping' | '/api/survey'
+  to: '/' | '/api/blueprint' | '/api/ping' | '/api/ping2' | '/api/survey'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/blueprint'
+    | '/api/ping'
+    | '/api/ping2'
+    | '/api/survey'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiBlueprintRoute: typeof ApiBlueprintRoute
   ApiPingRoute: typeof ApiPingRoute
+  ApiPing2Route: typeof ApiPing2Route
   ApiSurveyRoute: typeof ApiSurveyRoute
 }
 
@@ -92,6 +108,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ping2': {
+      id: '/api/ping2'
+      path: '/api/ping2'
+      fullPath: '/api/ping2'
+      preLoaderRoute: typeof ApiPing2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/survey': {
       id: '/api/survey'
       path: '/api/survey'
@@ -106,6 +129,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiBlueprintRoute: ApiBlueprintRoute,
   ApiPingRoute: ApiPingRoute,
+  ApiPing2Route: ApiPing2Route,
   ApiSurveyRoute: ApiSurveyRoute,
 }
 export const routeTree = rootRouteImport
