@@ -66,56 +66,63 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
     return sse(stream);
   }
 
-  console.log("[architect] upstream ok", upstream.status);
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
 
-  let buffer = "";
-  const stream = new ReadableStream({
-    async pull(controller) {
-      const { done, value } = await reader.read();
-      console.log("[architect] read", done, value?.length);
-      if (done) {
-        controller.enqueue(encodeEvent({ type: "done" }));
-        controller.close();
-        return;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      const chunks = buffer.split("\n\n");
-      buffer = chunks.pop() ?? "";
-      for (const chunk of chunks) {
-        for (const line of chunk.split("\n")) {
-          if (!line.startsWith("data:")) continue;
-          const payload = line.slice(5).trim();
-          if (!payload || payload === "[DONE]") continue;
-          let evt: { type?: string; delta?: string; response?: { error?: { message?: string } } };
-          try {
-            evt = JSON.parse(payload);
-          } catch {
-            continue;
-          }
-          if (evt.type === "response.reasoning_summary_text.delta" && evt.delta) {
-            controller.enqueue(encodeEvent({ type: "thought", value: evt.delta }));
-          } else if (evt.type === "response.output_text.delta" && evt.delta) {
-            controller.enqueue(encodeEvent({ type: "text", value: evt.delta }));
-          } else if (evt.type === "response.failed" || evt.type === "error") {
-            controller.enqueue(
-              encodeEvent({
-                type: "error",
-                value: evt.response?.error?.message ?? "Generation failed.",
-              }),
-            );
+  void (async () => {
+    let buffer = "";
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() ?? "";
+        for (const chunk of chunks) {
+          for (const line of chunk.split("\n")) {
+            if (!line.startsWith("data:")) continue;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            let evt: {
+              type?: string;
+              delta?: string;
+              response?: { error?: { message?: string } };
+            };
+            try {
+              evt = JSON.parse(payload);
+            } catch {
+              continue;
+            }
+            if (evt.type === "response.reasoning_summary_text.delta" && evt.delta) {
+              await writer.write(encodeEvent({ type: "thought", value: evt.delta }));
+            } else if (evt.type === "response.output_text.delta" && evt.delta) {
+              await writer.write(encodeEvent({ type: "text", value: evt.delta }));
+            } else if (evt.type === "response.failed" || evt.type === "error") {
+              await writer.write(
+                encodeEvent({
+                  type: "error",
+                  value: evt.response?.error?.message ?? "Generation failed.",
+                }),
+              );
+            }
           }
         }
       }
-    },
-    cancel() {
-      void reader.cancel();
-    },
-  });
+      await writer.write(encodeEvent({ type: "done" }));
+    } catch (err) {
+      await writer
+        .write(encodeEvent({ type: "error", value: String(err) }))
+        .catch(() => undefined);
+    } finally {
+      await writer.close().catch(() => undefined);
+    }
+  })();
 
-  return sse(stream);
+  return sse(readable);
 }
+
 
 function sse(stream: ReadableStream) {
   return new Response(stream, {
