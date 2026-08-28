@@ -106,39 +106,52 @@ function Home() {
     setRaw("");
     setActiveFile(0);
     setStage("blueprint");
+    const answerList = survey.questions.map((q) => ({
+      question: q.question,
+      answer: answers[q.id] ?? "",
+    }));
+    let text = "";
     await streamPost(
       "/api/blueprint",
-      {
-        idea,
-        domain: survey.domain,
-        answers: survey.questions.map((q) => ({
-          question: q.question,
-          answer: answers[q.id] ?? "",
-        })),
-      },
+      { idea, domain: survey.domain, answers: answerList },
       (e) => {
         if (e.type === "thought") setThoughts((t) => t + e.value);
-        else if (e.type === "text") setRaw((r) => r + e.value);
-        else if (e.type === "error") setError(e.value);
+        else if (e.type === "text") {
+          text += e.value;
+          setRaw((r) => r + e.value);
+        } else if (e.type === "error") setError(e.value);
       },
       ctrl.signal,
     ).catch((err: unknown) => {
       if ((err as Error)?.name !== "AbortError") setError(String(err));
     });
+    const generated = parseFiles(text);
+    if (generated.length) {
+      saveProject({
+        idea,
+        domain: survey.domain,
+        summary: survey.summary,
+        answers: answerList,
+        files: generated,
+      });
+    }
     setBusy(false);
   }, [survey, answers, idea]);
 
-  const downloadZip = useCallback(async () => {
-    const zip = new JSZip();
-    files.forEach((f) => zip.file(f.name, f.content));
-    const blob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(survey?.domain ?? "blueprint").toLowerCase().replace(/\W+/g, "-")}-spec.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [files, survey]);
+  const downloadZip = useCallback(
+    () =>
+      downloadPackage(files, survey?.domain ?? idea, {
+        idea,
+        domain: survey?.domain ?? "",
+        answers:
+          survey?.questions.map((q) => ({
+            question: q.question,
+            answer: answers[q.id] ?? "",
+          })) ?? [],
+      }),
+    [files, survey, idea, answers],
+  );
+
 
   return (
     <main className="min-h-screen">
