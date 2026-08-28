@@ -36,7 +36,6 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
   };
   if (opts.format) body["text"] = { format: opts.format };
 
-  console.log("[architect] calling gateway");
   const upstream = await fetch(GATEWAY, {
     method: "POST",
     headers: {
