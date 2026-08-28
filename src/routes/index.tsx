@@ -1,7 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import JSZip from "jszip";
-import { Check, Copy, Download, Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Check, Copy, Download, History, Loader2, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ThoughtStream } from "@/components/ThoughtStream";
@@ -11,6 +10,8 @@ import {
   type BlueprintFile,
   type Survey,
 } from "@/lib/architect-client";
+import { downloadPackage, saveProject } from "@/lib/blueprint-store";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -105,39 +106,52 @@ function Home() {
     setRaw("");
     setActiveFile(0);
     setStage("blueprint");
+    const answerList = survey.questions.map((q) => ({
+      question: q.question,
+      answer: answers[q.id] ?? "",
+    }));
+    let text = "";
     await streamPost(
       "/api/blueprint",
-      {
-        idea,
-        domain: survey.domain,
-        answers: survey.questions.map((q) => ({
-          question: q.question,
-          answer: answers[q.id] ?? "",
-        })),
-      },
+      { idea, domain: survey.domain, answers: answerList },
       (e) => {
         if (e.type === "thought") setThoughts((t) => t + e.value);
-        else if (e.type === "text") setRaw((r) => r + e.value);
-        else if (e.type === "error") setError(e.value);
+        else if (e.type === "text") {
+          text += e.value;
+          setRaw((r) => r + e.value);
+        } else if (e.type === "error") setError(e.value);
       },
       ctrl.signal,
     ).catch((err: unknown) => {
       if ((err as Error)?.name !== "AbortError") setError(String(err));
     });
+    const generated = parseFiles(text);
+    if (generated.length) {
+      saveProject({
+        idea,
+        domain: survey.domain,
+        summary: survey.summary,
+        answers: answerList,
+        files: generated,
+      });
+    }
     setBusy(false);
   }, [survey, answers, idea]);
 
-  const downloadZip = useCallback(async () => {
-    const zip = new JSZip();
-    files.forEach((f) => zip.file(f.name, f.content));
-    const blob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(survey?.domain ?? "blueprint").toLowerCase().replace(/\W+/g, "-")}-spec.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [files, survey]);
+  const downloadZip = useCallback(
+    () =>
+      downloadPackage(files, survey?.domain ?? idea, {
+        idea,
+        domain: survey?.domain ?? "",
+        answers:
+          survey?.questions.map((q) => ({
+            question: q.question,
+            answer: answers[q.id] ?? "",
+          })) ?? [],
+      }),
+    [files, survey, idea, answers],
+  );
+
 
   return (
     <main className="min-h-screen">
@@ -146,9 +160,12 @@ function Home() {
           <div className="flex items-center gap-2 font-mono text-sm tracking-[0.25em] text-primary uppercase">
             <Sparkles className="size-4" /> SpecEngine
           </div>
-          <span className="font-mono text-xs text-muted-foreground">
-            architect agent · v1
-          </span>
+          <Button asChild variant="ghost" size="sm" className="font-mono text-xs">
+            <Link to="/history">
+              <History /> History
+            </Link>
+          </Button>
+
         </header>
 
         <section className="mx-auto max-w-3xl px-6 pt-10 pb-14 text-center">
