@@ -36,6 +36,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
   };
   if (opts.format) body["text"] = { format: opts.format };
 
+  console.log("[architect] calling gateway");
   const upstream = await fetch(GATEWAY, {
     method: "POST",
     headers: {
@@ -65,6 +66,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
     return sse(stream);
   }
 
+  console.log("[architect] upstream ok", upstream.status);
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
 
