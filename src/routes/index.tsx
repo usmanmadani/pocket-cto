@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
@@ -86,6 +86,7 @@ function Home() {
   const savedIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -321,23 +322,23 @@ function Home() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="font-mono text-xs gap-1.5"
-              onClick={() => setGithubModalOpen(true)}
-            >
-              <Github className="size-3.5" />
-              {codebaseContext ? (
-                <span className="text-primary truncate max-w-[130px]">
-                  {codebaseContext.repoName.split("/")[1] || codebaseContext.repoName}
-                </span>
-              ) : (
-                "GitHub Sync"
-              )}
-            </Button>
             {user ? (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="font-mono text-xs gap-1.5"
+                  onClick={() => setGithubModalOpen(true)}
+                >
+                  <Github className="size-3.5" />
+                  {codebaseContext ? (
+                    <span className="text-primary truncate max-w-[130px]">
+                      {codebaseContext.repoName.split("/")[1] || codebaseContext.repoName}
+                    </span>
+                  ) : (
+                    "GitHub Sync"
+                  )}
+                </Button>
                 <Button asChild variant="ghost" size="sm" className="font-mono text-xs">
                   <Link to="/history">
                     <History /> History
@@ -373,7 +374,7 @@ function Home() {
           </p>
 
           <div className="panel mt-8 p-4 text-left">
-            {codebaseContext && (
+            {codebaseContext && user && (
               <div className="mb-3 flex items-center justify-between rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
                 <div className="flex items-center gap-2 min-w-0">
                   <FolderGit2 className="size-4 shrink-0 text-primary" />
@@ -410,7 +411,7 @@ function Home() {
               value={idea}
               onChange={(e) => setIdea(e.target.value)}
               placeholder={
-                codebaseContext
+                codebaseContext && user
                   ? `Describe the feature or new module to add to ${codebaseContext.repoName}...`
                   : "Describe the system you want to build..."
               }
@@ -431,12 +432,18 @@ function Home() {
               <div className="flex items-center gap-2">
                 <Button
                   variant="secondary"
-                  onClick={() => setGithubModalOpen(true)}
+                  onClick={() => {
+                    if (!user) {
+                      void navigate({ to: "/auth" });
+                      return;
+                    }
+                    setGithubModalOpen(true);
+                  }}
                   disabled={busy}
                   className="font-mono text-xs gap-1.5"
                 >
                   <FolderGit2 className="size-3.5" />
-                  {codebaseContext ? "Repo Synced" : "Sync Repo"}
+                  {codebaseContext && user ? "Repo Synced" : "Sync Repo"}
                 </Button>
                 <Button onClick={runSurvey} disabled={busy || idea.trim().length < 3}>
                   {busy && stage === "survey" ? (
