@@ -29,7 +29,7 @@ export const listRemoteProjects = createServerFn({ method: "GET" })
       createdAt: row.created_at as string,
       answers: (row.answers ?? []) as SavedProject["answers"],
       files: (row.files ?? []) as SavedProject["files"],
-      phases: (row.phases ?? []) as SavedProject["phases"],
+      phases: (row.phases ?? []) as NonNullable<SavedProject["phases"]>,
     }));
   });
 
