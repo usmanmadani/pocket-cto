@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ThoughtStream } from "@/components/ThoughtStream";
 import { GitHubSyncModal } from "@/components/GitHubSyncModal";
 import { UserFlowCanvas } from "@/components/UserFlowCanvas";
+import { IDEWorkspace } from "@/components/IDEWorkspace";
 import {
   parseFiles,
   parsePhases,
@@ -629,50 +630,32 @@ function Home() {
             </div>
 
             {view === "files" && (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    {files.map((f, i) => (
-                      <button
-                        key={f.name}
-                        onClick={() => setActiveFile(i)}
-                        className={`rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
-                          i === activeFile
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {f.name}
-                      </button>
-                    ))}
-                    {files.length === 0 && (
-                      <span className="font-mono text-xs text-muted-foreground">
-                        Compiling deliverables...
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={!current}
-                      onClick={() =>
-                        current && navigator.clipboard.writeText(current.content)
-                      }
-                    >
-                      <Copy /> Copy file
-                    </Button>
-                    <Button size="sm" disabled={!files.length || busy} onClick={downloadZip}>
-                      <Download /> Download .zip
-                    </Button>
-                  </div>
-                </div>
-
-                <pre className="panel max-h-[70vh] overflow-auto p-5 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">
-                  {current?.content ?? raw}
-                  {busy && <span className="caret text-primary">▍</span>}
-                </pre>
-              </>
+              <div className="space-y-4">
+                {files.length > 0 ? (
+                  <IDEWorkspace
+                    files={files}
+                    userFlow={userFlow}
+                    ideaTitle={idea}
+                    domain={survey?.domain}
+                    repoFullName={codebaseContext?.repoName}
+                    onOpenSyncModal={() => setGithubModalOpen(true)}
+                    onUpdateFile={(fileName, newContent) => {
+                      setRaw((prev) => {
+                        const marker = `===FILE: ${fileName}===`;
+                        if (!prev.includes(marker)) return prev;
+                        const parts = prev.split(new RegExp(`===FILE:\\s*${fileName}\\s*===`));
+                        const after = parts[1] ? parts[1].replace(/^[\s\S]*?(?====FILE:|$)/, `\n${newContent}\n`) : "";
+                        return parts[0] + marker + after;
+                      });
+                    }}
+                  />
+                ) : (
+                  <pre className="panel max-h-[70vh] overflow-auto p-5 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">
+                    {raw || "Compiling deliverables..."}
+                    {busy && <span className="caret text-primary">▍</span>}
+                  </pre>
+                )}
+              </div>
             )}
 
             {view === "prompts" && (
