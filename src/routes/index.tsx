@@ -77,6 +77,34 @@ function Home() {
   const [doneP, setDoneP] = useState<Record<number, boolean>>({});
   const savedIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const { user } = useAuth();
+
+  const persist = useCallback(
+    async (payload: {
+      idea: string;
+      domain: string;
+      summary: string;
+      answers: { question: string; answer: string }[];
+      files: BlueprintFile[];
+      phases?: BuildPhase[];
+    }) => {
+      const id = savedIdRef.current;
+      if (user) {
+        const saved = await saveRemoteProject({
+          data: { ...(id ? { id } : {}), ...payload },
+        });
+        savedIdRef.current = saved.id;
+        return;
+      }
+      const saved = saveProject({ ...(id ? { id } : {}), ...payload });
+      savedIdRef.current = saved.id;
+    },
+    [user],
+  );
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
 
   const files: BlueprintFile[] = useMemo(() => parseFiles(raw), [raw]);
   const phases: BuildPhase[] = useMemo(() => parsePhases(phaseRaw), [phaseRaw]);
