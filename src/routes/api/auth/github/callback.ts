@@ -44,20 +44,56 @@ export const Route = createFileRoute("/api/auth/github/callback")({
           };
 
           if (data.access_token) {
+            let customUser = null;
+            try {
+              const userRes = await fetch("https://api.github.com/user", {
+                headers: {
+                  Accept: "application/vnd.github+json",
+                  Authorization: `Bearer ${data.access_token}`,
+                  "User-Agent": "Pocket-CTO-App",
+                },
+              });
+              if (userRes.ok) {
+                const ghUser = (await userRes.json()) as {
+                  id: number;
+                  login: string;
+                  name?: string;
+                  avatar_url?: string;
+                  email?: string;
+                };
+                customUser = {
+                  id: `github_${ghUser.id}`,
+                  email: ghUser.email || `${ghUser.login}@users.noreply.github.com`,
+                  user_metadata: {
+                    display_name: ghUser.name || ghUser.login,
+                    full_name: ghUser.name || ghUser.login,
+                    avatar_url: ghUser.avatar_url || "",
+                    user_name: ghUser.login,
+                  },
+                };
+              }
+            } catch {
+              /* ignore error fetching extra profile */
+            }
+
+            const userParam = customUser
+              ? `&auth_user=${encodeURIComponent(JSON.stringify(customUser))}`
+              : "";
+
             return Response.redirect(
-              `${origin}/?github_token=${encodeURIComponent(data.access_token)}`,
+              `${origin}/history?github_token=${encodeURIComponent(data.access_token)}${userParam}`,
               302,
             );
           }
 
           const errMsg = data.error_description || data.error || "oauth_failed";
           return Response.redirect(
-            `${origin}/?github_error=${encodeURIComponent(errMsg)}`,
+            `${origin}/auth?github_error=${encodeURIComponent(errMsg)}`,
             302,
           );
         } catch (err) {
           return Response.redirect(
-            `${origin}/?github_error=${encodeURIComponent(String(err))}`,
+            `${origin}/auth?github_error=${encodeURIComponent(String(err))}`,
             302,
           );
         }

@@ -11,6 +11,8 @@ import {
 } from "@/lib/projects.functions";
 import { supabase } from "@/integrations/supabase/client";
 
+import { useAuth, setCustomSession } from "@/hooks/useAuth";
+
 export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({
     meta: [
@@ -39,13 +41,36 @@ function HistoryPage() {
   const [migrating, setMigrating] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { signOut: authSignOut } = useAuth();
 
-  const { data: projects = [], isLoading } = useQuery({
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const authUser = params.get("auth_user");
+    const ghToken = params.get("github_token");
+    if (authUser) {
+      try {
+        const parsed = JSON.parse(authUser);
+        setCustomSession(parsed, ghToken || undefined);
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  const { data: remoteProjects = [], isLoading } = useQuery({
     queryKey: ["projects"],
-    queryFn: () => listRemoteProjects(),
+    queryFn: () => listRemoteProjects().catch(() => []),
   });
 
   useEffect(() => setLocal(listProjects()), []);
+
+  const projects = useMemo(() => {
+    if (remoteProjects && remoteProjects.length > 0) return remoteProjects;
+    return local;
+  }, [remoteProjects, local]);
 
   const open = useMemo(
     () => projects.find((p) => p.id === openId) ?? null,
@@ -55,26 +80,30 @@ function HistoryPage() {
 
   const importLocal = async () => {
     setMigrating(true);
-    for (const p of local) {
-      await saveRemoteProject({
-        data: {
-          idea: p.idea,
-          domain: p.domain,
-          summary: p.summary,
-          answers: p.answers,
-          files: p.files,
-          phases: p.phases ?? [],
-        },
-      });
+    try {
+      for (const p of local) {
+        await saveRemoteProject({
+          data: {
+            idea: p.idea,
+            domain: p.domain,
+            summary: p.summary,
+            answers: p.answers,
+            files: p.files,
+            phases: p.phases ?? [],
+          },
+        });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    } catch {
+      /* ignore if remote not available */
     }
-    await queryClient.invalidateQueries({ queryKey: ["projects"] });
     setMigrating(false);
   };
 
   const signOut = async () => {
     await queryClient.cancelQueries();
     queryClient.clear();
-    await supabase.auth.signOut();
+    await authSignOut();
     void navigate({ to: "/auth", replace: true });
   };
 

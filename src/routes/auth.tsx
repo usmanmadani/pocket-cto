@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, setCustomSession } from "@/hooks/useAuth";
 
 function GoogleIcon({ className = "size-4" }: { className?: string }) {
   return (
@@ -60,12 +60,35 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const { session, loading } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && session) void navigate({ to: "/history", replace: true });
-  }, [session, loading, navigate]);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const ghError = params.get("github_error");
+    const authUser = params.get("auth_user");
+    const ghToken = params.get("github_token");
+
+    if (authUser) {
+      try {
+        const parsed = JSON.parse(authUser);
+        setCustomSession(parsed, ghToken || undefined);
+        void navigate({ to: "/history", replace: true });
+        return;
+      } catch {
+        /* ignore */
+      }
+    }
+
+    if (ghError) {
+      setError(`GitHub sign-in error: ${ghError}`);
+    }
+
+    if (!loading && user) {
+      void navigate({ to: "/history", replace: true });
+    }
+  }, [user, loading, navigate]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,19 +132,23 @@ function AuthPage() {
     }
   };
 
-  const github = async () => {
+  const github = () => {
     setError("");
-    try {
-      const { error: err } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: {
-          redirectTo: `${window.location.origin}/history`,
-        },
-      });
-      if (err) throw err;
-    } catch (err) {
-      setError((err as Error).message);
+    const clientId =
+      (typeof process !== "undefined" &&
+        (process.env?.["VITE_GITHUB_CLIENT_ID"] || process.env?.["GITHUB_CLIENT_ID"])) ||
+      "";
+    if (!clientId) {
+      setError(
+        "Missing GITHUB_CLIENT_ID. Please add GITHUB_CLIENT_ID to your environment variables to enable GitHub sign-in.",
+      );
+      return;
     }
+    const redirectUri = `${window.location.origin}/api/auth/github/callback`;
+    const scope = "read:user user:email repo";
+    window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(
+      redirectUri,
+    )}&scope=${encodeURIComponent(scope)}`;
   };
 
   return (

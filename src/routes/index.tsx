@@ -32,7 +32,7 @@ import {
 } from "@/lib/architect-client";
 import { downloadPackage, saveProject } from "@/lib/blueprint-store";
 import { saveRemoteProject } from "@/lib/projects.functions";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, setCustomSession } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
 
@@ -85,14 +85,25 @@ function Home() {
   const [githubModalOpen, setGithubModalOpen] = useState(false);
   const savedIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const ghToken = params.get("github_token");
     const ghError = params.get("github_error");
-    if (ghToken) {
+    const authUser = params.get("auth_user");
+
+    if (authUser) {
+      try {
+        const parsed = JSON.parse(authUser);
+        setCustomSession(parsed, ghToken || undefined);
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      } catch {
+        /* ignore */
+      }
+    } else if (ghToken) {
       localStorage.setItem("specengine.github_token", ghToken);
       setGithubModalOpen(true);
       const cleanUrl = window.location.pathname;
@@ -115,22 +126,22 @@ function Home() {
       codebaseContext?: CodebaseContext;
     }) => {
       const id = savedIdRef.current;
-      if (user) {
-        const saved = await saveRemoteProject({
-          data: { ...(id ? { id } : {}), ...payload },
-        });
-        savedIdRef.current = saved.id;
-        return;
+      if (user && !String(user.id).startsWith("github_")) {
+        try {
+          const saved = await saveRemoteProject({
+            data: { ...(id ? { id } : {}), ...payload },
+          });
+          savedIdRef.current = saved.id;
+          return;
+        } catch {
+          /* fallback to local */
+        }
       }
       const saved = saveProject({ ...(id ? { id } : {}), ...payload });
       savedIdRef.current = saved.id;
     },
     [user],
   );
-
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-  }, []);
 
   const files: BlueprintFile[] = useMemo(() => parseFiles(raw), [raw]);
   const phases: BuildPhase[] = useMemo(() => parsePhases(phaseRaw), [phaseRaw]);
