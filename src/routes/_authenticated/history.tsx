@@ -10,8 +10,9 @@ import {
   saveRemoteProject,
 } from "@/lib/projects.functions";
 import { supabase } from "@/integrations/supabase/client";
-
 import { useAuth, setCustomSession } from "@/hooks/useAuth";
+import { IDEWorkspace } from "@/components/IDEWorkspace";
+import { GitHubSyncModal } from "@/components/GitHubSyncModal";
 
 export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({
@@ -39,6 +40,7 @@ function HistoryPage() {
   const [activeFile, setActiveFile] = useState(0);
   const [local, setLocal] = useState<SavedProject[]>([]);
   const [migrating, setMigrating] = useState(false);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { signOut: authSignOut } = useAuth();
@@ -206,30 +208,25 @@ function HistoryPage() {
             </div>
 
             {open?.id === p.id && (
-              <div className="mt-5 space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {p.files.map((f, i) => (
-                    <button
-                      key={f.name}
-                      onClick={() => setActiveFile(i)}
-                      className={`rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
-                        i === activeFile
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {f.name}
-                    </button>
-                  ))}
-                </div>
-                <pre className="max-h-[60vh] overflow-auto rounded-md border border-border bg-background/50 p-4 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">
-                  {file?.content}
-                </pre>
+              <div className="mt-5">
+                <IDEWorkspace
+                  files={p.files}
+                  userFlow={p.userFlow}
+                  ideaTitle={p.idea}
+                  domain={p.domain}
+                  repoFullName={p.codebaseContext?.repoName}
+                  onOpenSyncModal={() => setSyncModalOpen(true)}
+                />
               </div>
             )}
           </article>
         ))}
       </div>
+
+      <GitHubSyncModal
+        open={syncModalOpen}
+        onOpenChange={setSyncModalOpen}
+      />
     </main>
   );
 }
