@@ -116,12 +116,11 @@ export function GitHubSyncModal({
   // Trigger GitHub OAuth Redirect
   const handleConnectGitHub = () => {
     const clientId =
-      (typeof process !== "undefined" && process.env?.["VITE_GITHUB_CLIENT_ID"]) ||
-      "";
-    if (!clientId) {
-      setShowManualInput(true);
-      return;
-    }
+      (typeof import.meta !== "undefined" && (import.meta as unknown as { env?: { VITE_GITHUB_CLIENT_ID?: string } }).env?.VITE_GITHUB_CLIENT_ID) ||
+      (typeof process !== "undefined" &&
+        (process.env?.["VITE_GITHUB_CLIENT_ID"] || process.env?.["GITHUB_CLIENT_ID"])) ||
+      "Ov23liKC1BhX95A5pZM0";
+
     const redirectUri = `${window.location.origin}/api/auth/github/callback`;
     const scope = "repo read:user";
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(

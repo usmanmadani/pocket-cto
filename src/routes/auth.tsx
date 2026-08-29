@@ -135,15 +135,11 @@ function AuthPage() {
   const github = () => {
     setError("");
     const clientId =
+      (typeof import.meta !== "undefined" && (import.meta as unknown as { env?: { VITE_GITHUB_CLIENT_ID?: string } }).env?.VITE_GITHUB_CLIENT_ID) ||
       (typeof process !== "undefined" &&
         (process.env?.["VITE_GITHUB_CLIENT_ID"] || process.env?.["GITHUB_CLIENT_ID"])) ||
-      "";
-    if (!clientId) {
-      setError(
-        "Missing GITHUB_CLIENT_ID. Please add GITHUB_CLIENT_ID to your environment variables to enable GitHub sign-in.",
-      );
-      return;
-    }
+      "Ov23liKC1BhX95A5pZM0";
+
     const redirectUri = `${window.location.origin}/api/auth/github/callback`;
     const scope = "read:user user:email repo";
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(

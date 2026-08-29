@@ -13,12 +13,14 @@ export const Route = createFileRoute("/api/auth/github/callback")({
         }
 
         const clientId =
-          process.env["GITHUB_CLIENT_ID"] || process.env["VITE_GITHUB_CLIENT_ID"] || "";
+          process.env["GITHUB_CLIENT_ID"] ||
+          process.env["VITE_GITHUB_CLIENT_ID"] ||
+          "Ov23liKC1BhX95A5pZM0";
         const clientSecret = process.env["GITHUB_CLIENT_SECRET"] || "";
 
-        if (!clientId || !clientSecret) {
+        if (!clientSecret) {
           return Response.redirect(
-            `${origin}/?github_error=missing_server_credentials`,
+            `${origin}/auth?github_error=missing_github_client_secret`,
             302,
           );
         }
