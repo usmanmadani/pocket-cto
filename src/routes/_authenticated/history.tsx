@@ -1,22 +1,24 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Download, FileText, Trash2 } from "lucide-react";
+import { ArrowLeft, CloudUpload, Download, FileText, Loader2, LogOut, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { downloadPackage, listProjects, type SavedProject } from "@/lib/blueprint-store";
 import {
-  deleteProject,
-  downloadPackage,
-  listProjects,
-  type SavedProject,
-} from "@/lib/blueprint-store";
+  deleteRemoteProject,
+  listRemoteProjects,
+  saveRemoteProject,
+} from "@/lib/projects.functions";
+import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/history")({
+export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({
     meta: [
       { title: "Blueprint History — SpecEngine Saved Spec Packages" },
       {
         name: "description",
         content:
-          "Browse every blueprint package SpecEngine generated for you, reopen the PRD, architecture, schema, prompts and roadmap, or re-download the zip.",
+          "Browse every blueprint package SpecEngine generated for your account, reopen the PRD, architecture, schema, prompts and roadmap, or re-download the zip.",
       },
       { property: "og:title", content: "Blueprint History — SpecEngine" },
       {
@@ -27,15 +29,23 @@ export const Route = createFileRoute("/history")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: History,
+  component: HistoryPage,
 });
 
-function History() {
-  const [projects, setProjects] = useState<SavedProject[]>([]);
+function HistoryPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [activeFile, setActiveFile] = useState(0);
+  const [local, setLocal] = useState<SavedProject[]>([]);
+  const [migrating, setMigrating] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  useEffect(() => setProjects(listProjects()), []);
+  const { data: projects = [], isLoading } = useQuery({
+    queryKey: ["projects"],
+    queryFn: () => listRemoteProjects(),
+  });
+
+  useEffect(() => setLocal(listProjects()), []);
 
   const open = useMemo(
     () => projects.find((p) => p.id === openId) ?? null,
@@ -43,24 +53,72 @@ function History() {
   );
   const file = open?.files[Math.min(activeFile, open.files.length - 1)];
 
+  const importLocal = async () => {
+    setMigrating(true);
+    for (const p of local) {
+      await saveRemoteProject({
+        data: {
+          idea: p.idea,
+          domain: p.domain,
+          summary: p.summary,
+          answers: p.answers,
+          files: p.files,
+          phases: p.phases ?? [],
+        },
+      });
+    }
+    await queryClient.invalidateQueries({ queryKey: ["projects"] });
+    setMigrating(false);
+  };
+
+  const signOut = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+    void navigate({ to: "/auth", replace: true });
+  };
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <div className="mb-8 flex items-center justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-semibold">Blueprint history</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Every package you generated on this device. Reopen it or download the zip
-            again.
+            Every package saved to your account. Reopen it or download the zip again.
           </p>
         </div>
-        <Button asChild variant="secondary" size="sm">
-          <Link to="/">
-            <ArrowLeft /> New blueprint
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="secondary" size="sm">
+            <Link to="/">
+              <ArrowLeft /> New blueprint
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={signOut}>
+            <LogOut /> Sign out
+          </Button>
+        </div>
       </div>
 
-      {projects.length === 0 && (
+      {local.length > 0 && (
+        <div className="panel mb-4 flex flex-wrap items-center justify-between gap-3 p-4">
+          <p className="text-sm text-muted-foreground">
+            {local.length} blueprint{local.length > 1 ? "s" : ""} are still stored only on
+            this device.
+          </p>
+          <Button size="sm" onClick={importLocal} disabled={migrating}>
+            {migrating ? <Loader2 className="animate-spin" /> : <CloudUpload />} Import to
+            my account
+          </Button>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="panel p-10 text-center text-sm text-muted-foreground">
+          Loading your blueprints...
+        </div>
+      )}
+
+      {!isLoading && projects.length === 0 && (
         <div className="panel p-10 text-center text-sm text-muted-foreground">
           No saved packages yet. Generate a blueprint and it will appear here.
         </div>
@@ -107,9 +165,9 @@ function History() {
                   size="sm"
                   variant="ghost"
                   aria-label="Delete package"
-                  onClick={() => {
-                    deleteProject(p.id);
-                    setProjects(listProjects());
+                  onClick={async () => {
+                    await deleteRemoteProject({ data: { id: p.id } });
+                    await queryClient.invalidateQueries({ queryKey: ["projects"] });
                     if (openId === p.id) setOpenId(null);
                   }}
                 >

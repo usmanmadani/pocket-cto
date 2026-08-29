@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as HistoryRouteImport } from './routes/history'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as ApiBlueprintRouteImport } from './routes/api/blueprint'
 import { Route as ApiPhasesRouteImport } from './routes/api/phases'
 import { Route as ApiSurveyRouteImport } from './routes/api/survey'
@@ -20,10 +22,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HistoryRoute = HistoryRouteImport.update({
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
   id: '/history',
   path: '/history',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ApiBlueprintRoute = ApiBlueprintRouteImport.update({
   id: '/api/blueprint',
@@ -43,14 +54,16 @@ const ApiSurveyRoute = ApiSurveyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/history': typeof HistoryRoute
+  '/auth': typeof AuthRoute
+  '/history': typeof AuthenticatedHistoryRoute
   '/api/blueprint': typeof ApiBlueprintRoute
   '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/history': typeof HistoryRoute
+  '/auth': typeof AuthRoute
+  '/history': typeof AuthenticatedHistoryRoute
   '/api/blueprint': typeof ApiBlueprintRoute
   '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
@@ -58,20 +71,36 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/history': typeof HistoryRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/history': typeof AuthenticatedHistoryRoute
   '/api/blueprint': typeof ApiBlueprintRoute
   '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/api/blueprint' | '/api/phases' | '/api/survey'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/history'
+    | '/api/blueprint'
+    | '/api/phases'
+    | '/api/survey'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/api/blueprint' | '/api/phases' | '/api/survey'
+  to:
+    | '/'
+    | '/auth'
+    | '/history'
+    | '/api/blueprint'
+    | '/api/phases'
+    | '/api/survey'
   id:
     | '__root__'
     | '/'
-    | '/history'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/history'
     | '/api/blueprint'
     | '/api/phases'
     | '/api/survey'
@@ -79,7 +108,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  HistoryRoute: typeof HistoryRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
   ApiBlueprintRoute: typeof ApiBlueprintRoute
   ApiPhasesRoute: typeof ApiPhasesRoute
   ApiSurveyRoute: typeof ApiSurveyRoute
@@ -94,12 +124,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/history': {
-      id: '/history'
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/history': {
+      id: '/_authenticated/history'
       path: '/history'
       fullPath: '/history'
-      preLoaderRoute: typeof HistoryRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/blueprint': {
       id: '/api/blueprint'
@@ -125,9 +169,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  HistoryRoute: HistoryRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
   ApiBlueprintRoute: ApiBlueprintRoute,
   ApiPhasesRoute: ApiPhasesRoute,
   ApiSurveyRoute: ApiSurveyRoute,

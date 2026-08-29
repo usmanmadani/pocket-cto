@@ -8,6 +8,8 @@ import {
   History,
   ListOrdered,
   Loader2,
+  LogIn,
+  LogOut,
   Sparkles,
   Wand2,
 } from "lucide-react";
@@ -23,6 +25,9 @@ import {
   type Survey,
 } from "@/lib/architect-client";
 import { downloadPackage, saveProject } from "@/lib/blueprint-store";
+import { saveRemoteProject } from "@/lib/projects.functions";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 
 export const Route = createFileRoute("/")({
@@ -72,6 +77,34 @@ function Home() {
   const [doneP, setDoneP] = useState<Record<number, boolean>>({});
   const savedIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const { user } = useAuth();
+
+  const persist = useCallback(
+    async (payload: {
+      idea: string;
+      domain: string;
+      summary: string;
+      answers: { question: string; answer: string }[];
+      files: BlueprintFile[];
+      phases?: BuildPhase[];
+    }) => {
+      const id = savedIdRef.current;
+      if (user) {
+        const saved = await saveRemoteProject({
+          data: { ...(id ? { id } : {}), ...payload },
+        });
+        savedIdRef.current = saved.id;
+        return;
+      }
+      const saved = saveProject({ ...(id ? { id } : {}), ...payload });
+      savedIdRef.current = saved.id;
+    },
+    [user],
+  );
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
 
   const files: BlueprintFile[] = useMemo(() => parseFiles(raw), [raw]);
   const phases: BuildPhase[] = useMemo(() => parsePhases(phaseRaw), [phaseRaw]);
@@ -150,17 +183,17 @@ function Home() {
     });
     const generated = parseFiles(text);
     if (generated.length) {
-      const saved = saveProject({
+      savedIdRef.current = null;
+      await persist({
         idea,
         domain: survey.domain,
         summary: survey.summary,
         answers: answerList,
         files: generated,
       });
-      savedIdRef.current = saved.id;
     }
     setBusy(false);
-  }, [survey, answers, idea]);
+  }, [survey, answers, idea, persist]);
 
   const runPhases = useCallback(async () => {
     if (!files.length) return;
@@ -192,8 +225,7 @@ function Home() {
     });
     const built = parsePhases(text);
     if (built.length && survey) {
-      const saved = saveProject({
-        ...(savedIdRef.current ? { id: savedIdRef.current } : {}),
+      await persist({
         idea,
         domain: survey.domain,
         summary: survey.summary,
@@ -201,10 +233,9 @@ function Home() {
         files,
         phases: built,
       });
-      savedIdRef.current = saved.id;
     }
     setPhaseBusy(false);
-  }, [files, survey, answers, idea, raw]);
+  }, [files, survey, answers, idea, raw, persist]);
 
   const copyPrompt = useCallback((p: BuildPhase) => {
     void navigator.clipboard.writeText(p.prompt);
@@ -236,12 +267,31 @@ function Home() {
           <div className="flex items-center gap-2 font-mono text-sm tracking-[0.25em] text-primary uppercase">
             <Sparkles className="size-4" /> SpecEngine
           </div>
-          <Button asChild variant="ghost" size="sm" className="font-mono text-xs">
-            <Link to="/history">
-              <History /> History
-            </Link>
-          </Button>
-
+          <div className="flex items-center gap-1">
+            {user ? (
+              <>
+                <Button asChild variant="ghost" size="sm" className="font-mono text-xs">
+                  <Link to="/history">
+                    <History /> History
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="font-mono text-xs"
+                  onClick={signOut}
+                >
+                  <LogOut /> Sign out
+                </Button>
+              </>
+            ) : (
+              <Button asChild variant="secondary" size="sm" className="font-mono text-xs">
+                <Link to="/auth">
+                  <LogIn /> Sign in
+                </Link>
+              </Button>
+            )}
+          </div>
         </header>
 
         <section className="mx-auto max-w-3xl px-6 pt-10 pb-14 text-center">
