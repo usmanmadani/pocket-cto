@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ThoughtStream } from "@/components/ThoughtStream";
 import { GitHubSyncModal } from "@/components/GitHubSyncModal";
+import { UserFlowCanvas } from "@/components/UserFlowCanvas";
 import {
   parseFiles,
   parsePhases,
@@ -29,6 +30,7 @@ import {
   type BuildPhase,
   type CodebaseContext,
   type Survey,
+  type UserFlowData,
 } from "@/lib/architect-client";
 import { downloadPackage, saveProject } from "@/lib/blueprint-store";
 import { saveRemoteProject } from "@/lib/projects.functions";
@@ -76,9 +78,12 @@ function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [raw, setRaw] = useState("");
   const [activeFile, setActiveFile] = useState(0);
-  const [view, setView] = useState<"files" | "prompts">("files");
+  const [view, setView] = useState<"files" | "prompts" | "userflow">("files");
   const [phaseRaw, setPhaseRaw] = useState("");
   const [phaseBusy, setPhaseBusy] = useState(false);
+  const [userFlow, setUserFlow] = useState<UserFlowData | null>(null);
+  const [userFlowBusy, setUserFlowBusy] = useState(false);
+  const [userFlowPng, setUserFlowPng] = useState<string | null>(null);
   const [copied, setCopied] = useState<number | null>(null);
   const [doneP, setDoneP] = useState<Record<number, boolean>>({});
   const [codebaseContext, setCodebaseContext] = useState<CodebaseContext | null>(null);
@@ -124,6 +129,7 @@ function Home() {
       answers: { question: string; answer: string }[];
       files: BlueprintFile[];
       phases?: BuildPhase[];
+      userFlow?: UserFlowData;
       codebaseContext?: CodebaseContext;
     }) => {
       const id = savedIdRef.current;
@@ -160,6 +166,8 @@ function Home() {
     setAnswers({});
     setRaw("");
     setPhaseRaw("");
+    setUserFlow(null);
+    setUserFlowPng(null);
     setStage("survey");
     let json = "";
     await streamPost(
@@ -186,6 +194,57 @@ function Home() {
     setBusy(false);
   }, [idea, error, codebaseContext]);
 
+  const runUserFlow = useCallback(async () => {
+    if (!survey) return;
+    const ctrl = new AbortController();
+    setUserFlowBusy(true);
+    setError("");
+    setThoughts("");
+    setView("userflow");
+    const answerList =
+      survey.questions.map((q) => ({
+        question: q.question,
+        answer: answers[q.id] ?? "",
+      })) ?? [];
+    let json = "";
+    await streamPost(
+      "/api/user-flow",
+      {
+        idea,
+        domain: survey.domain,
+        answers: answerList,
+        blueprint: raw,
+        codebaseContext,
+      },
+      (e) => {
+        if (e.type === "thought") setThoughts((t) => t + e.value);
+        else if (e.type === "text") json += e.value;
+        else if (e.type === "error") setError(e.value);
+      },
+      ctrl.signal,
+    ).catch((err: unknown) => {
+      if ((err as Error)?.name !== "AbortError") setError(String(err));
+    });
+    try {
+      const parsed = JSON.parse(json) as UserFlowData;
+      setUserFlow(parsed);
+      const generated = parseFiles(raw);
+      await persist({
+        idea,
+        domain: survey.domain,
+        summary: survey.summary,
+        answers: answerList,
+        files: generated,
+        phases: parsePhases(phaseRaw),
+        userFlow: parsed,
+        codebaseContext: codebaseContext ?? undefined,
+      });
+    } catch {
+      if (!error) setError("The agent returned an unreadable user flow. Try again.");
+    }
+    setUserFlowBusy(false);
+  }, [survey, answers, idea, raw, phaseRaw, codebaseContext, persist, error]);
+
   const runBlueprint = useCallback(async () => {
     if (!survey) return;
     abortRef.current?.abort();
@@ -197,6 +256,8 @@ function Home() {
     setRaw("");
     setActiveFile(0);
     setPhaseRaw("");
+    setUserFlow(null);
+    setUserFlowPng(null);
     setDoneP({});
     setView("files");
     setStage("blueprint");
@@ -277,11 +338,12 @@ function Home() {
         answers: answerList,
         files,
         phases: built,
+        userFlow: userFlow ?? undefined,
         codebaseContext: codebaseContext ?? undefined,
       });
     }
     setPhaseBusy(false);
-  }, [files, survey, answers, idea, raw, codebaseContext, persist]);
+  }, [files, survey, answers, idea, raw, userFlow, codebaseContext, persist]);
 
   const copyPrompt = useCallback((p: BuildPhase) => {
     void navigator.clipboard.writeText(p.prompt);
@@ -301,9 +363,11 @@ function Home() {
             answer: answers[q.id] ?? "",
           })) ?? [],
         phases,
+        userFlow: userFlow ?? undefined,
+        userFlowPng: userFlowPng ?? undefined,
         codebaseContext: codebaseContext ?? undefined,
       }),
-    [files, survey, idea, answers, phases, codebaseContext],
+    [files, survey, idea, answers, phases, userFlow, userFlowPng, codebaseContext],
   );
 
 
@@ -531,6 +595,22 @@ function Home() {
                 <FileText className="size-3.5" /> Blueprint files
               </button>
               <button
+                onClick={() => (userFlow ? setView("userflow") : runUserFlow())}
+                disabled={!files.length || busy || userFlowBusy}
+                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
+                  view === "userflow"
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {userFlowBusy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <GitBranch className="size-3.5" />
+                )}
+                User Flow Diagram{userFlow ? " (Ready)" : ""}
+              </button>
+              <button
                 onClick={() => (phases.length ? setView("prompts") : runPhases())}
                 disabled={!files.length || busy || phaseBusy}
                 className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
@@ -659,6 +739,61 @@ function Home() {
                   </article>
                 ))}
                 {phaseBusy && <span className="caret font-mono text-primary">▍</span>}
+              </div>
+            )}
+
+            {view === "userflow" && (
+              <div className="space-y-4">
+                <div className="panel flex flex-wrap items-center justify-between gap-3 p-5">
+                  <div>
+                    <h2 className="font-display text-lg font-semibold">
+                      UI/UX Navigation Hierarchy & Visual User Flow
+                    </h2>
+                    <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                      Visual navigation map with auth decision routing, central dashboard hub, and
+                      color-coded domain feature branches.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={userFlowBusy || !files.length}
+                      onClick={runUserFlow}
+                    >
+                      {userFlowBusy ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      {userFlow ? "Regenerate flow" : "Generate flow"}
+                    </Button>
+                    <Button size="sm" disabled={!userFlow} onClick={downloadZip}>
+                      <Download /> Download .zip
+                    </Button>
+                  </div>
+                </div>
+
+                {userFlowBusy && (
+                  <div className="panel p-12 text-center flex flex-col items-center">
+                    <Loader2 className="size-8 animate-spin text-primary mb-3" />
+                    <p className="font-mono text-xs text-muted-foreground">
+                      UI/UX Flow Architect Agent synthesizing navigation tree & branch modules...
+                    </p>
+                  </div>
+                )}
+
+                {userFlow && !userFlowBusy && (
+                  <UserFlowCanvas data={userFlow} onImageGenerated={setUserFlowPng} />
+                )}
+
+                {!userFlow && !userFlowBusy && (
+                  <div className="panel p-12 text-center flex flex-col items-center">
+                    <GitBranch className="size-10 text-muted-foreground mb-3" />
+                    <p className="font-mono text-xs text-muted-foreground mb-4">
+                      No user flow diagram generated yet.
+                    </p>
+                    <Button onClick={runUserFlow} disabled={!files.length}>
+                      <Sparkles className="size-4" /> Synthesize User Flow Diagram
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </section>

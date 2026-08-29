@@ -99,3 +99,39 @@ export function parsePhases(text: string): BuildPhase[] {
   }
   return phases;
 }
+
+export type UserFlowStep = {
+  title: string;
+  subtitle: string;
+  icon: string;
+  highlight?: boolean;
+};
+
+export type UserFlowBranch = {
+  name: string;
+  color: string;
+  icon: string;
+  steps: UserFlowStep[];
+};
+
+export type UserFlowAuthRoute = {
+  type: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  color: string;
+};
+
+export type UserFlowData = {
+  title: string;
+  subtitle: string;
+  entry: {
+    start: string;
+    splash: { title: string; subtitle: string; icon: string };
+    decision: { title: string; subtitle: string };
+    auth_routes: UserFlowAuthRoute[];
+  };
+  hub: { title: string; subtitle: string; icon: string };
+  branches: UserFlowBranch[];
+};
+

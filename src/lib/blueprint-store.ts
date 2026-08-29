@@ -1,5 +1,11 @@
 import JSZip from "jszip";
-import type { BlueprintFile, BuildPhase, CodebaseContext, Survey } from "./architect-client";
+import type {
+  BlueprintFile,
+  BuildPhase,
+  CodebaseContext,
+  Survey,
+  UserFlowData,
+} from "./architect-client";
 
 const KEY = "specengine.projects.v1";
 
@@ -12,6 +18,7 @@ export type SavedProject = {
   answers: { question: string; answer: string }[];
   files: BlueprintFile[];
   phases?: BuildPhase[];
+  userFlow?: UserFlowData;
   codebaseContext?: CodebaseContext;
 };
 
@@ -19,6 +26,7 @@ export const CANONICAL_FILES = [
   "PRD.md",
   "SYSTEM_ARCHITECTURE.md",
   "DATABASE_SCHEMA.sql",
+  "USER_FLOW.md",
   "AI_BUILDER_PROMPTS.md",
   "IMPLEMENTATION_ROADMAP.md",
 ];
@@ -76,12 +84,24 @@ export async function downloadPackage(
     domain: string;
     answers: { question: string; answer: string }[];
     phases?: BuildPhase[];
+    userFlow?: UserFlowData;
+    userFlowPng?: string;
     codebaseContext?: CodebaseContext;
   },
 ) {
   const zip = new JSZip();
   const folder = zip.folder(slugify(name)) ?? zip;
   order(files).forEach((f) => folder.file(f.name, f.content));
+
+  if (meta?.userFlow) {
+    folder.file("USER_FLOW.json", JSON.stringify(meta.userFlow, null, 2));
+  }
+
+  if (meta?.userFlowPng && meta.userFlowPng.startsWith("data:image/png;base64,")) {
+    const base64Data = meta.userFlowPng.replace(/^data:image\/png;base64,/, "");
+    folder.file("user-flow.png", base64Data, { base64: true });
+  }
+
   if (meta) {
     folder.file(
       "SPEC_MANIFEST.md",
@@ -102,6 +122,7 @@ export async function downloadPackage(
         "",
         "## Files",
         ...order(files).map((f) => `- ${f.name}`),
+        ...(meta.userFlow ? ["- USER_FLOW.json", "- user-flow.png"] : []),
       ].join("\n"),
     );
   }
@@ -139,4 +160,5 @@ export async function downloadPackage(
   URL.revokeObjectURL(url);
 }
 
-export type { BuildPhase, Survey };
+export type { BuildPhase, Survey, UserFlowData };
+

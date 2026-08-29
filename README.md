@@ -204,3 +204,11 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Changelog
+
+- **Iteration 1**: Initial release of Pocket CTO (SpecEngine) core architect engine, dynamic survey generation, and full markdown blueprint synthesis.
+- **Iteration 2**: Added phase-by-phase build prompts for AI builders (Lovable, Cursor, v0).
+- **Iteration 3**: Integrated direct GitHub connection, repository picking, and codebase schema synchronization.
+- **Iteration 4**: Added Visual User Flow synthesis agent and automatic DOM-to-PNG diagram renderer. This reduced UI planning ambiguity and provided engineers with an immediate visual map of all screen transitions before code generation.
+
