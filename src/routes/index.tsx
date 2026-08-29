@@ -8,6 +8,8 @@ import {
   History,
   ListOrdered,
   Loader2,
+  LogIn,
+  LogOut,
   Sparkles,
   Wand2,
 } from "lucide-react";
