@@ -183,17 +183,17 @@ function Home() {
     });
     const generated = parseFiles(text);
     if (generated.length) {
-      const saved = saveProject({
+      savedIdRef.current = null;
+      await persist({
         idea,
         domain: survey.domain,
         summary: survey.summary,
         answers: answerList,
         files: generated,
       });
-      savedIdRef.current = saved.id;
     }
     setBusy(false);
-  }, [survey, answers, idea]);
+  }, [survey, answers, idea, persist]);
 
   const runPhases = useCallback(async () => {
     if (!files.length) return;
