@@ -16,7 +16,9 @@ export const Route = createFileRoute("/api/auth/github/callback")({
           process.env["GITHUB_CLIENT_ID"] ||
           process.env["VITE_GITHUB_CLIENT_ID"] ||
           "Ov23liKC1BhX95A5pZM0";
-        const clientSecret = process.env["GITHUB_CLIENT_SECRET"] || "";
+        const clientSecret =
+          process.env["GITHUB_CLIENT_SECRET"] ||
+          "33e31b82986015f17154c2a4b6c27e370770dfe6";
 
         if (!clientSecret) {
           return Response.redirect(
