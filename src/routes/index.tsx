@@ -236,12 +236,31 @@ function Home() {
           <div className="flex items-center gap-2 font-mono text-sm tracking-[0.25em] text-primary uppercase">
             <Sparkles className="size-4" /> SpecEngine
           </div>
-          <Button asChild variant="ghost" size="sm" className="font-mono text-xs">
-            <Link to="/history">
-              <History /> History
-            </Link>
-          </Button>
-
+          <div className="flex items-center gap-1">
+            {user ? (
+              <>
+                <Button asChild variant="ghost" size="sm" className="font-mono text-xs">
+                  <Link to="/history">
+                    <History /> History
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="font-mono text-xs"
+                  onClick={signOut}
+                >
+                  <LogOut /> Sign out
+                </Button>
+              </>
+            ) : (
+              <Button asChild variant="secondary" size="sm" className="font-mono text-xs">
+                <Link to="/auth">
+                  <LogIn /> Sign in
+                </Link>
+              </Button>
+            )}
+          </div>
         </header>
 
         <section className="mx-auto max-w-3xl px-6 pt-10 pb-14 text-center">
