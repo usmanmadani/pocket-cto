@@ -25,6 +25,9 @@ import {
   type Survey,
 } from "@/lib/architect-client";
 import { downloadPackage, saveProject } from "@/lib/blueprint-store";
+import { saveRemoteProject } from "@/lib/projects.functions";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 
 export const Route = createFileRoute("/")({
