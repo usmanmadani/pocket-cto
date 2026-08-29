@@ -30,17 +30,30 @@ export const Route = createFileRoute("/api/phases")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { idea, domain, answers, blueprint } = (await request.json()) as {
+        const { idea, domain, answers, blueprint, codebaseContext } = (await request.json()) as {
           idea?: string;
           domain?: string;
           answers?: { question: string; answer: string }[];
           blueprint?: string;
+          codebaseContext?: {
+            repoName: string;
+            fileTree?: string[];
+            keyFiles?: Array<{ path: string; content: string }>;
+          };
         };
         if (!idea) return new Response("Missing idea", { status: 400 });
 
         const answerBlock = (answers ?? [])
           .map((a) => `- ${a.question} => ${a.answer}`)
           .join("\n");
+
+        const contextLines = codebaseContext?.repoName
+          ? [
+              "",
+              `[EXISTING GITHUB REPOSITORY]: ${codebaseContext.repoName}`,
+              "Each prompt must instruct the builder to integrate with existing repository structure and existing database models without breaking changes.",
+            ]
+          : [];
 
         return streamArchitect({
           instructions: INSTRUCTIONS,
@@ -50,6 +63,7 @@ export const Route = createFileRoute("/api/phases")({
             "",
             "Survey answers:",
             answerBlock,
+            ...contextLines,
             "",
             "Approved blueprint:",
             (blueprint ?? "").slice(0, 120000),

@@ -50,13 +50,29 @@ export const Route = createFileRoute("/api/survey")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { idea } = (await request.json()) as { idea?: string };
+        const { idea, codebaseContext } = (await request.json()) as {
+          idea?: string;
+          codebaseContext?: {
+            repoName: string;
+            fileTree?: string[];
+            keyFiles?: Array<{ path: string; content: string }>;
+          };
+        };
         if (!idea || idea.trim().length < 3) {
           return new Response("Describe your software idea first.", { status: 400 });
         }
+
+        let contextBlock = "";
+        if (codebaseContext?.repoName) {
+          const keyFilesSummary = (codebaseContext.keyFiles ?? [])
+            .map((f) => `File: ${f.path}\n\`\`\`\n${f.content.slice(0, 1500)}\n\`\`\``)
+            .join("\n\n");
+          contextBlock = `\n\n[EXISTING GITHUB REPOSITORY CONTEXT]:\nRepository: ${codebaseContext.repoName}\nDetected Key Structure / Schemas:\n${keyFilesSummary}\n\nGround survey questions in extending this existing architecture cleanly.`;
+        }
+
         return streamArchitect({
           instructions: INSTRUCTIONS,
-          input: `Software idea: ${idea.trim()}`,
+          input: `Software idea: ${idea.trim()}${contextBlock}`,
           format: FORMAT,
           effort: "medium",
           signal: request.signal,

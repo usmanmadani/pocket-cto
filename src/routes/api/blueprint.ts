@@ -30,10 +30,15 @@ export const Route = createFileRoute("/api/blueprint")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { idea, domain, answers } = (await request.json()) as {
+        const { idea, domain, answers, codebaseContext } = (await request.json()) as {
           idea?: string;
           domain?: string;
           answers?: { question: string; answer: string }[];
+          codebaseContext?: {
+            repoName: string;
+            fileTree?: string[];
+            keyFiles?: Array<{ path: string; content: string }>;
+          };
         };
         if (!idea) return new Response("Missing idea", { status: 400 });
 
@@ -41,9 +46,20 @@ export const Route = createFileRoute("/api/blueprint")({
           .map((a) => `- ${a.question} => ${a.answer}`)
           .join("\n");
 
+        let contextBlock = "";
+        if (codebaseContext?.repoName) {
+          const filesSummary = (codebaseContext.keyFiles ?? [])
+            .map((f) => `### ${f.path}\n\`\`\`\n${f.content.slice(0, 3000)}\n\`\`\``)
+            .join("\n\n");
+
+          const treeSummary = (codebaseContext.fileTree ?? []).slice(0, 80).join("\n");
+
+          contextBlock = `\n\n[CONTEXT FROM EXISTING GITHUB REPO]:\nRepository: ${codebaseContext.repoName}\n\nExisting File Tree (Sample):\n${treeSummary}\n\nExisting Schema & Architecture Files:\n${filesSummary}\n\nTASK:\nAnalyze the existing architecture above, avoid breaking existing table structures, and generate new migrations and complementary endpoints that cleanly extend this existing codebase.`;
+        }
+
         return streamArchitect({
           instructions: INSTRUCTIONS,
-          input: `Software idea: ${idea}\nDomain: ${domain ?? "unspecified"}\n\nSurvey answers:\n${answerBlock}`,
+          input: `Software idea: ${idea}\nDomain: ${domain ?? "unspecified"}\n\nSurvey answers:\n${answerBlock}${contextBlock}`,
           effort: "medium",
           signal: request.signal,
         });

@@ -78,11 +78,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SpecEngine — AI Software Architect" },
+      { title: "Pocket CTO — AI Software Architect" },
       {
         name: "description",
         content:
-          "Turn a software idea into a full implementation blueprint: PRD, architecture, schema, prompts and roadmap.",
+          "Turn any software idea or existing codebase into a full implementation blueprint: PRD, architecture, schema, prompts and roadmap.",
+      },
+      { property: "og:title", content: "Pocket CTO — AI Software Architect" },
+      {
+        property: "og:description",
+        content:
+          "Describe your idea, sync your GitHub repo, and generate a production-ready software blueprint with Pocket CTO.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -98,7 +104,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/icon.png" },
     ],
   }),
 

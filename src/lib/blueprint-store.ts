@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import type { BlueprintFile, BuildPhase, Survey } from "./architect-client";
+import type { BlueprintFile, BuildPhase, CodebaseContext, Survey } from "./architect-client";
 
 const KEY = "specengine.projects.v1";
 
@@ -12,6 +12,7 @@ export type SavedProject = {
   answers: { question: string; answer: string }[];
   files: BlueprintFile[];
   phases?: BuildPhase[];
+  codebaseContext?: CodebaseContext;
 };
 
 export const CANONICAL_FILES = [
@@ -75,6 +76,7 @@ export async function downloadPackage(
     domain: string;
     answers: { question: string; answer: string }[];
     phases?: BuildPhase[];
+    codebaseContext?: CodebaseContext;
   },
 ) {
   const zip = new JSZip();
@@ -88,6 +90,12 @@ export async function downloadPackage(
         "",
         `**Idea:** ${meta.idea}`,
         `**Generated:** ${new Date().toISOString()}`,
+        ...(meta.codebaseContext
+          ? [
+              `**Connected Repository:** ${meta.codebaseContext.repoName} (${meta.codebaseContext.defaultBranch || "main"})`,
+              `**Detected Schema/Config Files:** ${meta.codebaseContext.keyFiles?.map((f) => f.path).join(", ") || "None"}`,
+            ]
+          : []),
         "",
         "## Survey answers",
         ...meta.answers.map((a) => `- **${a.question}** — ${a.answer}`),

@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   Copy,
   Download,
+  FileCode2,
   FileText,
+  FolderGit2,
+  Github,
   History,
   ListOrdered,
   Loader2,
@@ -12,16 +15,19 @@ import {
   LogOut,
   Sparkles,
   Wand2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ThoughtStream } from "@/components/ThoughtStream";
+import { GitHubSyncModal } from "@/components/GitHubSyncModal";
 import {
   parseFiles,
   parsePhases,
   streamPost,
   type BlueprintFile,
   type BuildPhase,
+  type CodebaseContext,
   type Survey,
 } from "@/lib/architect-client";
 import { downloadPackage, saveProject } from "@/lib/blueprint-store";
@@ -33,13 +39,13 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SpecEngine — AI Software Architect & Blueprint Generator" },
+      { title: "Pocket CTO — AI Software Architect & Blueprint Generator" },
       {
         name: "description",
         content:
-          "Turn any software idea into a PRD, system architecture, PostgreSQL schema, AI-builder prompts and a phased roadmap — generated live by an architect agent.",
+          "Turn any software idea into a PRD, system architecture, PostgreSQL schema, AI-builder prompts and a phased roadmap — generated live by Pocket CTO.",
       },
-      { property: "og:title", content: "SpecEngine — AI Software Architect" },
+      { property: "og:title", content: "Pocket CTO — AI Software Architect" },
       {
         property: "og:description",
         content:
@@ -75,9 +81,28 @@ function Home() {
   const [phaseBusy, setPhaseBusy] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
   const [doneP, setDoneP] = useState<Record<number, boolean>>({});
+  const [codebaseContext, setCodebaseContext] = useState<CodebaseContext | null>(null);
+  const [githubModalOpen, setGithubModalOpen] = useState(false);
   const savedIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const ghToken = params.get("github_token");
+    const ghError = params.get("github_error");
+    if (ghToken) {
+      localStorage.setItem("specengine.github_token", ghToken);
+      setGithubModalOpen(true);
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    } else if (ghError) {
+      setError(`GitHub connection error: ${ghError}`);
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
 
   const persist = useCallback(
     async (payload: {
@@ -87,6 +112,7 @@ function Home() {
       answers: { question: string; answer: string }[];
       files: BlueprintFile[];
       phases?: BuildPhase[];
+      codebaseContext?: CodebaseContext;
     }) => {
       const id = savedIdRef.current;
       if (user) {
@@ -126,7 +152,7 @@ function Home() {
     let json = "";
     await streamPost(
       "/api/survey",
-      { idea },
+      { idea, codebaseContext },
       (e) => {
         if (e.type === "thought") setThoughts((t) => t + e.value);
         else if (e.type === "text") json += e.value;
@@ -146,7 +172,7 @@ function Home() {
       if (!error) setError("The agent returned an unreadable survey. Try again.");
     }
     setBusy(false);
-  }, [idea, error]);
+  }, [idea, error, codebaseContext]);
 
   const runBlueprint = useCallback(async () => {
     if (!survey) return;
@@ -169,7 +195,7 @@ function Home() {
     let text = "";
     await streamPost(
       "/api/blueprint",
-      { idea, domain: survey.domain, answers: answerList },
+      { idea, domain: survey.domain, answers: answerList, codebaseContext },
       (e) => {
         if (e.type === "thought") setThoughts((t) => t + e.value);
         else if (e.type === "text") {
@@ -190,10 +216,11 @@ function Home() {
         summary: survey.summary,
         answers: answerList,
         files: generated,
+        codebaseContext: codebaseContext ?? undefined,
       });
     }
     setBusy(false);
-  }, [survey, answers, idea, persist]);
+  }, [survey, answers, idea, codebaseContext, persist]);
 
   const runPhases = useCallback(async () => {
     if (!files.length) return;
@@ -211,7 +238,13 @@ function Home() {
     let text = "";
     await streamPost(
       "/api/phases",
-      { idea, domain: survey?.domain, answers: answerList, blueprint: raw },
+      {
+        idea,
+        domain: survey?.domain,
+        answers: answerList,
+        blueprint: raw,
+        codebaseContext,
+      },
       (e) => {
         if (e.type === "thought") setThoughts((t) => t + e.value);
         else if (e.type === "text") {
@@ -232,10 +265,11 @@ function Home() {
         answers: answerList,
         files,
         phases: built,
+        codebaseContext: codebaseContext ?? undefined,
       });
     }
     setPhaseBusy(false);
-  }, [files, survey, answers, idea, raw, persist]);
+  }, [files, survey, answers, idea, raw, codebaseContext, persist]);
 
   const copyPrompt = useCallback((p: BuildPhase) => {
     void navigator.clipboard.writeText(p.prompt);
@@ -255,8 +289,9 @@ function Home() {
             answer: answers[q.id] ?? "",
           })) ?? [],
         phases,
+        codebaseContext: codebaseContext ?? undefined,
       }),
-    [files, survey, idea, answers, phases],
+    [files, survey, idea, answers, phases, codebaseContext],
   );
 
 
@@ -264,10 +299,32 @@ function Home() {
     <main className="min-h-screen">
       <div className="hero-glow">
         <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-          <div className="flex items-center gap-2 font-mono text-sm tracking-[0.25em] text-primary uppercase">
-            <Sparkles className="size-4" /> SpecEngine
-          </div>
-          <div className="flex items-center gap-1">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <img
+              src="/icon.png"
+              alt="Pocket CTO Logo"
+              className="size-7 object-contain transition-transform group-hover:scale-105"
+            />
+            <span className="font-mono text-sm font-semibold tracking-[0.2em] text-primary uppercase">
+              Pocket CTO
+            </span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-mono text-xs gap-1.5"
+              onClick={() => setGithubModalOpen(true)}
+            >
+              <Github className="size-3.5" />
+              {codebaseContext ? (
+                <span className="text-primary truncate max-w-[130px]">
+                  {codebaseContext.repoName.split("/")[1] || codebaseContext.repoName}
+                </span>
+              ) : (
+                "GitHub Sync"
+              )}
+            </Button>
             {user ? (
               <>
                 <Button asChild variant="ghost" size="sm" className="font-mono text-xs">
@@ -305,10 +362,47 @@ function Home() {
           </p>
 
           <div className="panel mt-8 p-4 text-left">
+            {codebaseContext && (
+              <div className="mb-3 flex items-center justify-between rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FolderGit2 className="size-4 shrink-0 text-primary" />
+                  <span className="truncate font-mono">
+                    Extending <strong className="text-primary">{codebaseContext.repoName}</strong>
+                  </span>
+                  <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">
+                    ({codebaseContext.keyFiles.length} schema files ingested)
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[11px] font-mono text-muted-foreground hover:text-primary"
+                    onClick={() => setGithubModalOpen(true)}
+                  >
+                    Change
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-muted-foreground hover:text-destructive"
+                    onClick={() => setCodebaseContext(null)}
+                    title="Unlink repository"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <Textarea
               value={idea}
               onChange={(e) => setIdea(e.target.value)}
-              placeholder="Describe the system you want to build..."
+              placeholder={
+                codebaseContext
+                  ? `Describe the feature or new module to add to ${codebaseContext.repoName}...`
+                  : "Describe the system you want to build..."
+              }
               className="min-h-28 resize-none border-0 bg-transparent font-mono text-sm shadow-none focus-visible:ring-0"
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -323,14 +417,25 @@ function Home() {
                   </button>
                 ))}
               </div>
-              <Button onClick={runSurvey} disabled={busy || idea.trim().length < 3}>
-                {busy && stage === "survey" ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  <Wand2 />
-                )}
-                Analyze idea
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setGithubModalOpen(true)}
+                  disabled={busy}
+                  className="font-mono text-xs gap-1.5"
+                >
+                  <FolderGit2 className="size-3.5" />
+                  {codebaseContext ? "Repo Synced" : "Sync Repo"}
+                </Button>
+                <Button onClick={runSurvey} disabled={busy || idea.trim().length < 3}>
+                  {busy && stage === "survey" ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <Wand2 />
+                  )}
+                  Analyze idea
+                </Button>
+              </div>
             </div>
           </div>
         </section>
@@ -541,6 +646,14 @@ function Home() {
           </section>
         )}
       </div>
+
+      <GitHubSyncModal
+        open={githubModalOpen}
+        onOpenChange={setGithubModalOpen}
+        onRepoSynced={setCodebaseContext}
+        activeContext={codebaseContext}
+        onClearContext={() => setCodebaseContext(null)}
+      />
     </main>
   );
 }

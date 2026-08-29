@@ -14,16 +14,16 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({
     meta: [
-      { title: "Blueprint History — SpecEngine Saved Spec Packages" },
+      { title: "Blueprint History — Pocket CTO Saved Packages" },
       {
         name: "description",
         content:
-          "Browse every blueprint package SpecEngine generated for your account, reopen the PRD, architecture, schema, prompts and roadmap, or re-download the zip.",
+          "Browse every blueprint package Pocket CTO generated for your account, reopen the PRD, architecture, schema, prompts and roadmap, or re-download the zip.",
       },
-      { property: "og:title", content: "Blueprint History — SpecEngine" },
+      { property: "og:title", content: "Blueprint History — Pocket CTO" },
       {
         property: "og:description",
-        content: "Reopen and re-download your past SpecEngine blueprint packages.",
+        content: "Reopen and re-download your past Pocket CTO blueprint packages.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

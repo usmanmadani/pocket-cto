@@ -54,6 +54,18 @@ export type Survey = {
   questions: SurveyQuestion[];
 };
 
+export type KeyFile = {
+  path: string;
+  content: string;
+};
+
+export type CodebaseContext = {
+  repoName: string;
+  defaultBranch?: string;
+  fileTree: string[];
+  keyFiles: KeyFile[];
+};
+
 export type BlueprintFile = { name: string; content: string };
 
 /** Splits the streamed blueprint text into files on `===FILE: name===` markers. */
