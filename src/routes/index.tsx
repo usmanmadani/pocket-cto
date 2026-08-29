@@ -225,8 +225,7 @@ function Home() {
     });
     const built = parsePhases(text);
     if (built.length && survey) {
-      const saved = saveProject({
-        ...(savedIdRef.current ? { id: savedIdRef.current } : {}),
+      await persist({
         idea,
         domain: survey.domain,
         summary: survey.summary,
@@ -234,10 +233,9 @@ function Home() {
         files,
         phases: built,
       });
-      savedIdRef.current = saved.id;
     }
     setPhaseBusy(false);
-  }, [files, survey, answers, idea, raw]);
+  }, [files, survey, answers, idea, raw, persist]);
 
   const copyPrompt = useCallback((p: BuildPhase) => {
     void navigator.clipboard.writeText(p.prompt);
