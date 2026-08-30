@@ -1,7 +1,13 @@
 const GOOGLE_ENDPOINT = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
 
-const MODELS = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"];
+const MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-flash-latest",
+  "gemini-2.5-pro",
+];
 
 type Body = Record<string, unknown>;
 
@@ -40,9 +46,27 @@ function thinkingBudget(effort: StreamOptions["effort"]) {
  * SSE feed of `{ type: "thought" | "text" | "error" | "done", value }` events.
  */
 export async function streamArchitect(opts: StreamOptions): Promise<Response> {
-  const apiKey = process.env["GOOGLE_AI_API_KEY"];
+  const apiKey =
+    process.env["GEMINI_API_KEY"] ||
+    process.env["GOOGLE_AI_API_KEY"] ||
+    process.env["GOOGLE_API_KEY"] ||
+    process.env["VITE_GEMINI_API_KEY"] ||
+    process.env["VITE_GOOGLE_AI_API_KEY"];
+
   if (!apiKey) {
-    return new Response("Missing GOOGLE_AI_API_KEY", { status: 500 });
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          encodeEvent({
+            type: "error",
+            value:
+              "Missing GEMINI_API_KEY. Please add GEMINI_API_KEY or GOOGLE_AI_API_KEY in your environment variables to use Gemini for User Flow generation.",
+          }),
+        );
+        controller.close();
+      },
+    });
+    return sse(stream);
   }
 
   const generationConfig: Body = {
