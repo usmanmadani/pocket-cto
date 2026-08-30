@@ -255,6 +255,7 @@ function Home() {
       setAnswers(
         Object.fromEntries(fallbackSurvey.questions.map((q) => [q.id, q.options[0] ?? ""])),
       );
+      setError("");
     }
     setBusy(false);
   }, [idea, codebaseContext]);

@@ -2,10 +2,10 @@ const GOOGLE_ENDPOINT = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
 
 const MODELS = [
-  "gemini-2.0-flash",
   "gemini-1.5-flash",
+  "gemini-2.0-flash",
   "gemini-1.5-pro",
-  "gemini-2.0-flash-lite-preview-02-05",
+  "gemini-2.0-flash-exp",
 ];
 
 type Body = Record<string, unknown>;
@@ -22,23 +22,10 @@ function encodeEvent(obj: unknown) {
   return new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`);
 }
 
-function thinkingBudget(effort: StreamOptions["effort"]) {
-  if (effort === "low") return 1024;
-  if (effort === "high") return 16384;
-  return 4096;
-}
-
-function buildBody(model: string, opts: StreamOptions, stripThinking = false): Body {
+function buildBody(opts: StreamOptions): Body {
   const generationConfig: Body = {
     temperature: 0.7,
   };
-
-  if (!stripThinking && (model.includes("2.0") || model.includes("2.5"))) {
-    generationConfig["thinkingConfig"] = {
-      includeThoughts: true,
-      thinkingBudget: thinkingBudget(opts.effort),
-    };
-  }
 
   if (opts.format) {
     generationConfig["responseMimeType"] = "application/json";
@@ -70,7 +57,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
           encodeEvent({
             type: "error",
             value:
-              "Missing GEMINI_API_KEY. Please add GEMINI_API_KEY in your environment variables to enable autonomous architecture streaming.",
+              "Missing GEMINI_API_KEY. Please configure GEMINI_API_KEY in your environment variables to enable autonomous AI streaming.",
           }),
         );
         controller.close();
@@ -80,13 +67,11 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
   }
 
   const authHeaders: Record<string, string> = { "x-goog-api-key": apiKey };
+  const body = buildBody(opts);
 
   let upstream: Response | undefined;
-  for (let attempt = 0; attempt < MODELS.length * 2; attempt++) {
-    const model = MODELS[attempt % MODELS.length]!;
-    const stripThinking = attempt >= MODELS.length;
-    const body = buildBody(model, opts, stripThinking);
-
+  for (let attempt = 0; attempt < MODELS.length; attempt++) {
+    const model = MODELS[attempt]!;
     try {
       upstream = await fetch(GOOGLE_ENDPOINT(model), {
         method: "POST",
@@ -96,13 +81,10 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
       });
 
       if (upstream.ok && upstream.body) break;
-      if (upstream.status !== 503 && upstream.status !== 429 && upstream.status !== 400 && upstream.status !== 404) {
-        break;
-      }
     } catch {
       /* continue to next model fallback */
     }
-    await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+    await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
   }
 
   if (!upstream || !upstream.ok || !upstream.body) {
@@ -112,7 +94,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
       status === 401 || status === 403
         ? "Google AI rejected the credentials. Check the GEMINI_API_KEY."
         : status === 429 || status === 503
-          ? "Google AI is busy right now. Please retry in a moment."
+          ? "Google AI is temporarily saturated. Please retry in a moment."
           : message || `AI request failed (${status}).`;
 
     const stream = new ReadableStream({
