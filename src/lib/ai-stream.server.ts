@@ -1,11 +1,10 @@
-const GOOGLE_ENDPOINT = (model: string) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
+const GOOGLE_ENDPOINT = (model: string, apiKey: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${encodeURIComponent(apiKey)}&alt=sse`;
 
 const MODELS = [
   "gemini-1.5-flash",
   "gemini-2.0-flash",
   "gemini-1.5-pro",
-  "gemini-2.0-flash-exp",
 ];
 
 type Body = Record<string, unknown>;
@@ -57,7 +56,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
           encodeEvent({
             type: "error",
             value:
-              "Missing GEMINI_API_KEY. Please configure GEMINI_API_KEY in your environment variables to enable autonomous AI streaming.",
+              "Missing GEMINI_API_KEY. Please configure GEMINI_API_KEY in your environment variables.",
           }),
         );
         controller.close();
@@ -66,36 +65,43 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
     return sse(stream);
   }
 
-  const authHeaders: Record<string, string> = { "x-goog-api-key": apiKey };
   const body = buildBody(opts);
 
   let upstream: Response | undefined;
+  let lastErrorMessage = "";
+
   for (let attempt = 0; attempt < MODELS.length; attempt++) {
     const model = MODELS[attempt]!;
     try {
-      upstream = await fetch(GOOGLE_ENDPOINT(model), {
+      upstream = await fetch(GOOGLE_ENDPOINT(model, apiKey), {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
         signal: opts.signal ?? null,
       });
 
       if (upstream.ok && upstream.body) break;
-    } catch {
-      /* continue to next model fallback */
+
+      if (!upstream.ok) {
+        const errText = await upstream.text().catch(() => "");
+        lastErrorMessage = errText;
+      }
+    } catch (fetchErr) {
+      lastErrorMessage = String(fetchErr);
     }
     await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
   }
 
   if (!upstream || !upstream.ok || !upstream.body) {
-    const message = await upstream?.text().catch(() => "");
-    const status = upstream?.status ?? 500;
-    const friendly =
-      status === 401 || status === 403
-        ? "Google AI rejected the credentials. Check the GEMINI_API_KEY."
-        : status === 429 || status === 503
-          ? "Google AI is temporarily saturated. Please retry in a moment."
-          : message || `AI request failed (${status}).`;
+    let friendly = "Google AI is temporarily unavailable. Please retry in a moment.";
+    try {
+      const parsed = JSON.parse(lastErrorMessage);
+      if (parsed?.error?.message) {
+        friendly = parsed.error.message;
+      }
+    } catch {
+      if (lastErrorMessage) friendly = lastErrorMessage;
+    }
 
     const stream = new ReadableStream({
       start(controller) {
