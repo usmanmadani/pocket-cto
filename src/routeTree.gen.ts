@@ -16,6 +16,14 @@ import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticate
 import { Route as ApiBlueprintRouteImport } from './routes/api/blueprint'
 import { Route as ApiPhasesRouteImport } from './routes/api/phases'
 import { Route as ApiSurveyRouteImport } from './routes/api/survey'
+import { Route as ApiUserFlowRouteImport } from './routes/api/user-flow'
+import { Route as ApiDiagnosticsFixRouteImport } from './routes/api/diagnostics/fix'
+import { Route as ApiGithubCommitRouteImport } from './routes/api/github/commit'
+import { Route as ApiGithubPrRouteImport } from './routes/api/github/pr'
+import { Route as ApiGithubPullRouteImport } from './routes/api/github/pull'
+import { Route as ApiGithubReposRouteImport } from './routes/api/github/repos'
+import { Route as ApiGithubSyncRouteImport } from './routes/api/github/sync'
+import { Route as ApiAuthGithubCallbackRouteImport } from './routes/api/auth/github/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -51,6 +59,46 @@ const ApiSurveyRoute = ApiSurveyRouteImport.update({
   path: '/api/survey',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUserFlowRoute = ApiUserFlowRouteImport.update({
+  id: '/api/user-flow',
+  path: '/api/user-flow',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDiagnosticsFixRoute = ApiDiagnosticsFixRouteImport.update({
+  id: '/api/diagnostics/fix',
+  path: '/api/diagnostics/fix',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubCommitRoute = ApiGithubCommitRouteImport.update({
+  id: '/api/github/commit',
+  path: '/api/github/commit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubPrRoute = ApiGithubPrRouteImport.update({
+  id: '/api/github/pr',
+  path: '/api/github/pr',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubPullRoute = ApiGithubPullRouteImport.update({
+  id: '/api/github/pull',
+  path: '/api/github/pull',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubReposRoute = ApiGithubReposRouteImport.update({
+  id: '/api/github/repos',
+  path: '/api/github/repos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubSyncRoute = ApiGithubSyncRouteImport.update({
+  id: '/api/github/sync',
+  path: '/api/github/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthGithubCallbackRoute = ApiAuthGithubCallbackRouteImport.update({
+  id: '/api/auth/github/callback',
+  path: '/api/auth/github/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -59,6 +107,14 @@ export interface FileRoutesByFullPath {
   '/api/blueprint': typeof ApiBlueprintRoute
   '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
+  '/api/user-flow': typeof ApiUserFlowRoute
+  '/api/diagnostics/fix': typeof ApiDiagnosticsFixRoute
+  '/api/github/commit': typeof ApiGithubCommitRoute
+  '/api/github/pr': typeof ApiGithubPrRoute
+  '/api/github/pull': typeof ApiGithubPullRoute
+  '/api/github/repos': typeof ApiGithubReposRoute
+  '/api/github/sync': typeof ApiGithubSyncRoute
+  '/api/auth/github/callback': typeof ApiAuthGithubCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -67,6 +123,14 @@ export interface FileRoutesByTo {
   '/api/blueprint': typeof ApiBlueprintRoute
   '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
+  '/api/user-flow': typeof ApiUserFlowRoute
+  '/api/diagnostics/fix': typeof ApiDiagnosticsFixRoute
+  '/api/github/commit': typeof ApiGithubCommitRoute
+  '/api/github/pr': typeof ApiGithubPrRoute
+  '/api/github/pull': typeof ApiGithubPullRoute
+  '/api/github/repos': typeof ApiGithubReposRoute
+  '/api/github/sync': typeof ApiGithubSyncRoute
+  '/api/auth/github/callback': typeof ApiAuthGithubCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,6 +141,14 @@ export interface FileRoutesById {
   '/api/blueprint': typeof ApiBlueprintRoute
   '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
+  '/api/user-flow': typeof ApiUserFlowRoute
+  '/api/diagnostics/fix': typeof ApiDiagnosticsFixRoute
+  '/api/github/commit': typeof ApiGithubCommitRoute
+  '/api/github/pr': typeof ApiGithubPrRoute
+  '/api/github/pull': typeof ApiGithubPullRoute
+  '/api/github/repos': typeof ApiGithubReposRoute
+  '/api/github/sync': typeof ApiGithubSyncRoute
+  '/api/auth/github/callback': typeof ApiAuthGithubCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,6 +159,14 @@ export interface FileRouteTypes {
     | '/api/blueprint'
     | '/api/phases'
     | '/api/survey'
+    | '/api/user-flow'
+    | '/api/diagnostics/fix'
+    | '/api/github/commit'
+    | '/api/github/pr'
+    | '/api/github/pull'
+    | '/api/github/repos'
+    | '/api/github/sync'
+    | '/api/auth/github/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -95,6 +175,14 @@ export interface FileRouteTypes {
     | '/api/blueprint'
     | '/api/phases'
     | '/api/survey'
+    | '/api/user-flow'
+    | '/api/diagnostics/fix'
+    | '/api/github/commit'
+    | '/api/github/pr'
+    | '/api/github/pull'
+    | '/api/github/repos'
+    | '/api/github/sync'
+    | '/api/auth/github/callback'
   id:
     | '__root__'
     | '/'
@@ -104,6 +192,14 @@ export interface FileRouteTypes {
     | '/api/blueprint'
     | '/api/phases'
     | '/api/survey'
+    | '/api/user-flow'
+    | '/api/diagnostics/fix'
+    | '/api/github/commit'
+    | '/api/github/pr'
+    | '/api/github/pull'
+    | '/api/github/repos'
+    | '/api/github/sync'
+    | '/api/auth/github/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -113,6 +209,14 @@ export interface RootRouteChildren {
   ApiBlueprintRoute: typeof ApiBlueprintRoute
   ApiPhasesRoute: typeof ApiPhasesRoute
   ApiSurveyRoute: typeof ApiSurveyRoute
+  ApiUserFlowRoute: typeof ApiUserFlowRoute
+  ApiDiagnosticsFixRoute: typeof ApiDiagnosticsFixRoute
+  ApiGithubCommitRoute: typeof ApiGithubCommitRoute
+  ApiGithubPrRoute: typeof ApiGithubPrRoute
+  ApiGithubPullRoute: typeof ApiGithubPullRoute
+  ApiGithubReposRoute: typeof ApiGithubReposRoute
+  ApiGithubSyncRoute: typeof ApiGithubSyncRoute
+  ApiAuthGithubCallbackRoute: typeof ApiAuthGithubCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -166,6 +270,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSurveyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/user-flow': {
+      id: '/api/user-flow'
+      path: '/api/user-flow'
+      fullPath: '/api/user-flow'
+      preLoaderRoute: typeof ApiUserFlowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/diagnostics/fix': {
+      id: '/api/diagnostics/fix'
+      path: '/api/diagnostics/fix'
+      fullPath: '/api/diagnostics/fix'
+      preLoaderRoute: typeof ApiDiagnosticsFixRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/commit': {
+      id: '/api/github/commit'
+      path: '/api/github/commit'
+      fullPath: '/api/github/commit'
+      preLoaderRoute: typeof ApiGithubCommitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/pr': {
+      id: '/api/github/pr'
+      path: '/api/github/pr'
+      fullPath: '/api/github/pr'
+      preLoaderRoute: typeof ApiGithubPrRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/pull': {
+      id: '/api/github/pull'
+      path: '/api/github/pull'
+      fullPath: '/api/github/pull'
+      preLoaderRoute: typeof ApiGithubPullRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/repos': {
+      id: '/api/github/repos'
+      path: '/api/github/repos'
+      fullPath: '/api/github/repos'
+      preLoaderRoute: typeof ApiGithubReposRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/sync': {
+      id: '/api/github/sync'
+      path: '/api/github/sync'
+      fullPath: '/api/github/sync'
+      preLoaderRoute: typeof ApiGithubSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/github/callback': {
+      id: '/api/auth/github/callback'
+      path: '/api/auth/github/callback'
+      fullPath: '/api/auth/github/callback'
+      preLoaderRoute: typeof ApiAuthGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -187,6 +347,14 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBlueprintRoute: ApiBlueprintRoute,
   ApiPhasesRoute: ApiPhasesRoute,
   ApiSurveyRoute: ApiSurveyRoute,
+  ApiUserFlowRoute: ApiUserFlowRoute,
+  ApiDiagnosticsFixRoute: ApiDiagnosticsFixRoute,
+  ApiGithubCommitRoute: ApiGithubCommitRoute,
+  ApiGithubPrRoute: ApiGithubPrRoute,
+  ApiGithubPullRoute: ApiGithubPullRoute,
+  ApiGithubReposRoute: ApiGithubReposRoute,
+  ApiGithubSyncRoute: ApiGithubSyncRoute,
+  ApiAuthGithubCallbackRoute: ApiAuthGithubCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
