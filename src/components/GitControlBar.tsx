@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { GITHUB_TOKEN_KEY } from "@/hooks/useAuth";
 
 interface GitControlBarProps {
-  repoFullName?: string;
+  repoFullName?: string | undefined;
   files: { name: string; content: string }[];
   onOpenSyncModal: () => void;
   onOpenPRModal: () => void;
