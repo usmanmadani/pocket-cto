@@ -2,11 +2,10 @@ const GOOGLE_ENDPOINT = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
 
 const MODELS = [
-  "gemini-2.5-flash",
   "gemini-2.0-flash",
   "gemini-1.5-flash",
-  "gemini-flash-latest",
-  "gemini-2.5-pro",
+  "gemini-1.5-pro",
+  "gemini-2.0-flash-lite-preview-02-05",
 ];
 
 type Body = Record<string, unknown>;
@@ -23,22 +22,33 @@ function encodeEvent(obj: unknown) {
   return new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`);
 }
 
-/** Google's responseSchema is OpenAPI-flavoured: strip JSON-Schema-only keywords. */
-function toGoogleSchema(schema: unknown): unknown {
-  if (Array.isArray(schema)) return schema.map(toGoogleSchema);
-  if (!schema || typeof schema !== "object") return schema;
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
-    if (key === "additionalProperties" || key === "strict" || key === "name") continue;
-    out[key] = toGoogleSchema(value);
-  }
-  return out;
-}
-
 function thinkingBudget(effort: StreamOptions["effort"]) {
   if (effort === "low") return 1024;
   if (effort === "high") return 16384;
   return 4096;
+}
+
+function buildBody(model: string, opts: StreamOptions, stripThinking = false): Body {
+  const generationConfig: Body = {
+    temperature: 0.7,
+  };
+
+  if (!stripThinking && (model.includes("2.0") || model.includes("2.5"))) {
+    generationConfig["thinkingConfig"] = {
+      includeThoughts: true,
+      thinkingBudget: thinkingBudget(opts.effort),
+    };
+  }
+
+  if (opts.format) {
+    generationConfig["responseMimeType"] = "application/json";
+  }
+
+  return {
+    systemInstruction: { parts: [{ text: opts.instructions }] },
+    contents: [{ role: "user", parts: [{ text: opts.input }] }],
+    generationConfig,
+  };
 }
 
 /**
@@ -60,7 +70,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
           encodeEvent({
             type: "error",
             value:
-              "Missing GEMINI_API_KEY. Please add GEMINI_API_KEY or GOOGLE_AI_API_KEY in your environment variables to use Gemini for User Flow generation.",
+              "Missing GEMINI_API_KEY. Please add GEMINI_API_KEY in your environment variables to enable autonomous architecture streaming.",
           }),
         );
         controller.close();
@@ -69,41 +79,30 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
     return sse(stream);
   }
 
-  const generationConfig: Body = {
-    temperature: 0.7,
-    thinkingConfig: {
-      includeThoughts: true,
-      thinkingBudget: thinkingBudget(opts.effort),
-    },
-  };
-
-  const jsonSchema = (opts.format as { schema?: unknown } | undefined)?.schema;
-  if (jsonSchema || opts.format) {
-    generationConfig["responseMimeType"] = "application/json";
-  }
-
-  const body: Body = {
-    systemInstruction: { parts: [{ text: opts.instructions }] },
-    contents: [{ role: "user", parts: [{ text: opts.input }] }],
-    generationConfig,
-  };
-
   const authHeaders: Record<string, string> = { "x-goog-api-key": apiKey };
 
-  // Gemini returns 503 when a model is momentarily saturated: fall back across
-  // models and retry with a short backoff before giving up.
   let upstream: Response | undefined;
   for (let attempt = 0; attempt < MODELS.length * 2; attempt++) {
     const model = MODELS[attempt % MODELS.length]!;
-    upstream = await fetch(GOOGLE_ENDPOINT(model), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders },
-      body: JSON.stringify(body),
-      signal: opts.signal ?? null,
-    });
-    if (upstream.ok && upstream.body) break;
-    if (upstream.status !== 503 && upstream.status !== 429) break;
-    await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+    const stripThinking = attempt >= MODELS.length;
+    const body = buildBody(model, opts, stripThinking);
+
+    try {
+      upstream = await fetch(GOOGLE_ENDPOINT(model), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify(body),
+        signal: opts.signal ?? null,
+      });
+
+      if (upstream.ok && upstream.body) break;
+      if (upstream.status !== 503 && upstream.status !== 429 && upstream.status !== 400 && upstream.status !== 404) {
+        break;
+      }
+    } catch {
+      /* continue to next model fallback */
+    }
+    await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
   }
 
   if (!upstream || !upstream.ok || !upstream.body) {
@@ -111,7 +110,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
     const status = upstream?.status ?? 500;
     const friendly =
       status === 401 || status === 403
-        ? "Google AI rejected the credentials. Check the API key or its project permissions."
+        ? "Google AI rejected the credentials. Check the GEMINI_API_KEY."
         : status === 429 || status === 503
           ? "Google AI is busy right now. Please retry in a moment."
           : message || `AI request failed (${status}).`;

@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { supabase } from "@/integrations/supabase/client";
 import type {
   BlueprintFile,
   BuildPhase,
@@ -88,7 +89,7 @@ export function deleteProject(id: string) {
 }
 
 /**
- * Persists studio chat messages for a specific project/idea
+ * Persists studio chat messages for a specific project/idea both locally and in Supabase
  */
 export function saveStudioChat(projectIdOrIdea: string, chatHistory: StudioChatMessage[]) {
   if (typeof window === "undefined" || !projectIdOrIdea) return;
@@ -98,7 +99,7 @@ export function saveStudioChat(projectIdOrIdea: string, chatHistory: StudioChatM
     existing[normalizedKey] = chatHistory;
     localStorage.setItem(CHATS_KEY, JSON.stringify(existing));
 
-    // Also update project entry if matched
+    // Also update project entry in local projects
     const projects = listProjects();
     const idx = projects.findIndex(
       (p) => p.id === projectIdOrIdea || slugify(p.idea) === normalizedKey,
@@ -106,6 +107,18 @@ export function saveStudioChat(projectIdOrIdea: string, chatHistory: StudioChatM
     if (idx >= 0) {
       projects[idx].chatHistory = chatHistory;
       localStorage.setItem(KEY, JSON.stringify(projects));
+
+      // Async sync to Supabase remote database if authenticated
+      void supabase.auth.getSession().then(({ data }) => {
+        if (data.session?.user) {
+          void supabase
+            .from("projects")
+            .update({ chat_history: chatHistory } as any)
+            .eq("id", projects[idx].id)
+            .then(() => undefined)
+            .catch(() => undefined);
+        }
+      });
     }
   } catch {
     /* ignore */

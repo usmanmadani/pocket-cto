@@ -46,6 +46,7 @@ import { streamPost, parseFiles, type BlueprintFile, type UserFlowData } from "@
 import { downloadPackage } from "@/lib/blueprint-store";
 import { AutonomousBuilderModal } from "@/components/AutonomousBuilderModal";
 import { NewRepoModal } from "@/components/NewRepoModal";
+import { ExportRulesModal } from "@/components/ExportRulesModal";
 
 interface IDEWorkspaceProps {
   files: BlueprintFile[];
@@ -75,6 +76,9 @@ export function IDEWorkspace({
   const [builderModalOpen, setBuilderModalOpen] = useState(false);
   const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [exportRulesModalOpen, setExportRulesModalOpen] = useState(false);
+  const [codeViewMode, setCodeViewMode] = useState<"editor" | "diff">("editor");
+  const [originalFiles, setOriginalFiles] = useState<BlueprintFile[]>(initialFiles);
   const [integrations, setIntegrations] = useState<ProjectIntegrations>(getStoredIntegrations());
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -89,6 +93,7 @@ export function IDEWorkspace({
   }, [initialFiles]);
 
   const activeFile = files[Math.min(activeFileIndex, Math.max(files.length - 1, 0))];
+  const originalFile = originalFiles.find((f) => f.name === activeFile?.name);
 
   // Extract SQL migrations and schemas
   const sqlFiles = useMemo(() => {
@@ -418,6 +423,17 @@ export function IDEWorkspace({
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setExportRulesModalOpen(true)}
+                className="h-7 gap-1.5 font-mono text-xs border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
+                title="Export .cursorrules and AI Prompt Packs for Cursor, Windsurf, Bolt, and v0"
+              >
+                <Sparkles className="size-3 text-purple-400" />
+                Export Rules
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setSettingsModalOpen(true)}
                 className="h-7 gap-1.5 font-mono text-xs border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
                 title="Configure your Supabase Database credentials (BYOK) and Vercel Token"
@@ -438,15 +454,41 @@ export function IDEWorkspace({
               </Button>
 
               {activeTab === "editor" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyCode}
-                  className="h-7 gap-1.5 font-mono text-xs"
-                >
-                  {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
-                  {copied ? "Copied" : "Copy"}
-                </Button>
+                <>
+                  <div className="flex items-center gap-1 shrink-0 bg-background/60 p-0.5 rounded-lg border border-border/70">
+                    <button
+                      onClick={() => setCodeViewMode("editor")}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10px] transition-all ${
+                        codeViewMode === "editor"
+                          ? "bg-primary/20 text-primary font-bold shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Code2 className="size-2.5" /> Editor
+                    </button>
+                    <button
+                      onClick={() => setCodeViewMode("diff")}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded font-mono text-[10px] transition-all ${
+                        codeViewMode === "diff"
+                          ? "bg-teal-500/20 text-teal-300 font-bold shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title="Side-by-side Git Diff view (+ additions / - deletions)"
+                    >
+                      <Sparkles className="size-2.5 text-teal-400" /> Git Diff
+                    </button>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyCode}
+                    className="h-7 gap-1.5 font-mono text-xs"
+                  >
+                    {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -459,6 +501,8 @@ export function IDEWorkspace({
                 <MonacoCodeEditor
                   fileName={activeFile.name}
                   value={activeFile.content}
+                  originalValue={originalFile?.content || activeFile.content}
+                  isDiff={codeViewMode === "diff"}
                   onChange={(newVal) => handleFileContentChange(activeFile.name, newVal)}
                 />
               </div>
@@ -643,6 +687,16 @@ export function IDEWorkspace({
         open={settingsModalOpen}
         onOpenChange={setSettingsModalOpen}
         onSaved={(cfg) => setIntegrations(cfg)}
+      />
+
+      {/* Export Rules & Prompt Packs Modal */}
+      <ExportRulesModal
+        open={exportRulesModalOpen}
+        onOpenChange={setExportRulesModalOpen}
+        files={files}
+        ideaTitle={ideaTitle}
+        domain={domain}
+        userFlow={userFlow}
       />
     </div>
   );

@@ -39,6 +39,7 @@ import { NewRepoModal } from "@/components/NewRepoModal";
 import { GitHubSyncModal } from "@/components/GitHubSyncModal";
 import { ProjectSettingsModal, getStoredIntegrations, type ProjectIntegrations } from "@/components/ProjectSettingsModal";
 import { ThoughtStream } from "@/components/ThoughtStream";
+import { ExportRulesModal } from "@/components/ExportRulesModal";
 import { streamPost, parseFiles, type BlueprintFile, type UserFlowData, type CodebaseContext } from "@/lib/architect-client";
 import { downloadPackage, saveStudioChat, getStudioChat, type StudioChatMessage } from "@/lib/blueprint-store";
 
@@ -96,6 +97,9 @@ export function LovableStudioBuilder({
   const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [exportRulesModalOpen, setExportRulesModalOpen] = useState(false);
+  const [codeViewMode, setCodeViewMode] = useState<"editor" | "diff">("editor");
+  const [originalFiles, setOriginalFiles] = useState<BlueprintFile[]>(initialFiles);
   const [integrations, setIntegrations] = useState<ProjectIntegrations>(getStoredIntegrations());
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
@@ -103,6 +107,7 @@ export function LovableStudioBuilder({
   const [copiedMigration, setCopiedMigration] = useState(false);
 
   const activeFile = files[Math.min(activeFileIndex, Math.max(files.length - 1, 0))];
+  const originalFile = originalFiles.find((f) => f.name === activeFile?.name);
 
   // Extract SQL migrations and schemas
   const sqlFiles = useMemo(() => {
@@ -405,6 +410,17 @@ export function LovableStudioBuilder({
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setExportRulesModalOpen(true)}
+            className="h-7 gap-1.5 font-mono text-xs border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
+            title="Export .cursorrules and AI Prompt Packs for Cursor, Windsurf, Bolt, and v0"
+          >
+            <Sparkles className="size-3 text-purple-400" />
+            Export Rules & Prompts
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setSettingsModalOpen(true)}
             className="h-7 gap-1.5 font-mono text-xs border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
             title="Configure your Supabase Database credentials (BYOK) and Vercel Token"
@@ -521,22 +537,25 @@ export function LovableStudioBuilder({
           </div>
 
           {/* Bottom Chat Prompt Box */}
-          <div className="p-3 border-t border-border/80 bg-[#070b14] space-y-2">
-            {/* Quick action chips */}
-            <div className="flex flex-wrap gap-1">
+          <div className="p-3 border-t border-border/80 bg-[#070b14] space-y-2.5">
+            {/* Quick 1-Click AI Recommendation Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
               {[
-                "Add Stripe billing",
-                "Add user auth & RLS",
-                "Add dark/light theme",
-                "Add data export",
+                { label: "🔐 Add Supabase Email & Google Auth", prompt: "Add Supabase user authentication with email sign-in, Google OAuth, and secure Row-Level Security (RLS) user tables." },
+                { label: "💳 Add Stripe Billing & Pricing Tiers", prompt: "Add Stripe checkout integration, subscription pricing tiers, and billing customer portal." },
+                { label: "📊 Add Real-Time Analytics Dashboard", prompt: "Add an interactive analytics dashboard with charts, KPI summary cards, and time-range filters." },
+                { label: "🔍 Add Global Command Bar (Cmd+K)", prompt: "Add a global Cmd+K quick search modal with keyboard navigation to jump between pages and actions." },
+                { label: "🌙 Add Dark / Light Mode Toggle", prompt: "Add high-contrast dark and white theme toggle switch with persistent local preference." },
+                { label: "⚡ Add Automated Vitest Tests", prompt: "Synthesize automated unit tests and validation suites for all critical components and schemas." },
               ].map((chip) => (
                 <button
-                  key={chip}
+                  key={chip.label}
                   type="button"
-                  onClick={() => setPromptInput(chip)}
-                  className="px-2 py-0.5 rounded-full border border-border/60 bg-background/40 font-mono text-[10px] text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                  onClick={() => setPromptInput(chip.prompt)}
+                  className="px-2.5 py-1 rounded-lg border border-border/70 bg-background/50 font-mono text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/10 transition-all whitespace-nowrap shrink-0 shadow-sm"
+                  title={`Click to fill: "${chip.prompt}"`}
                 >
-                  + {chip}
+                  {chip.label}
                 </button>
               ))}
             </div>
@@ -576,25 +595,52 @@ export function LovableStudioBuilder({
             </div>
           )}
 
-          {/* VIEW 2: MONACO CODE EDITOR */}
+          {/* VIEW 2: MONACO CODE EDITOR WITH VISUAL GIT DIFF */}
           {activeTab === "code" && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* File selection bar */}
-              <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border/70 bg-[#070a12] px-3 py-1.5">
-                {files.map((file, i) => (
+              {/* File selection and Diff Mode bar */}
+              <div className="flex items-center justify-between border-b border-border/70 bg-[#070a12] px-3 py-1.5 gap-2">
+                <div className="flex items-center gap-1.5 overflow-x-auto">
+                  {files.map((file, i) => (
+                    <button
+                      key={file.name}
+                      onClick={() => setActiveFileIndex(i)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono text-xs whitespace-nowrap transition-all ${
+                        i === activeFileIndex
+                          ? "bg-primary/20 text-primary font-semibold border border-primary/30"
+                          : "text-muted-foreground hover:bg-slate-900/60 hover:text-foreground"
+                      }`}
+                    >
+                      <FileCode2 className="size-3 text-teal-400" />
+                      <span>{file.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Visual Editor vs Git Diff Switcher */}
+                <div className="flex items-center gap-1 shrink-0 bg-background/60 p-0.5 rounded-lg border border-border/70">
                   <button
-                    key={file.name}
-                    onClick={() => setActiveFileIndex(i)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-mono text-xs whitespace-nowrap transition-all ${
-                      i === activeFileIndex
-                        ? "bg-primary/20 text-primary font-semibold border border-primary/30"
-                        : "text-muted-foreground hover:bg-slate-900/60 hover:text-foreground"
+                    onClick={() => setCodeViewMode("editor")}
+                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded font-mono text-[11px] transition-all ${
+                      codeViewMode === "editor"
+                        ? "bg-primary/20 text-primary font-bold shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <FileCode2 className="size-3 text-teal-400" />
-                    <span>{file.name}</span>
+                    <Code2 className="size-3" /> Editor
                   </button>
-                ))}
+                  <button
+                    onClick={() => setCodeViewMode("diff")}
+                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded font-mono text-[11px] transition-all ${
+                      codeViewMode === "diff"
+                        ? "bg-teal-500/20 text-teal-300 font-bold shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Side-by-side Git Diff view of changes (+ additions / - deletions)"
+                  >
+                    <Sparkles className="size-3 text-teal-400" /> Visual Git Diff
+                  </button>
+                </div>
               </div>
 
               {activeFile && (
@@ -602,6 +648,8 @@ export function LovableStudioBuilder({
                   <MonacoCodeEditor
                     fileName={activeFile.name}
                     value={activeFile.content}
+                    originalValue={originalFile?.content || activeFile.content}
+                    isDiff={codeViewMode === "diff"}
                     onChange={(newVal) => handleFileChange(activeFile.name, newVal)}
                   />
                 </div>
@@ -663,6 +711,15 @@ export function LovableStudioBuilder({
       </div>
 
       {/* Modals */}
+      <ExportRulesModal
+        open={exportRulesModalOpen}
+        onOpenChange={setExportRulesModalOpen}
+        files={files}
+        ideaTitle={ideaTitle}
+        domain={domain}
+        userFlow={userFlow}
+      />
+
       <ProjectSettingsModal
         open={settingsModalOpen}
         onOpenChange={setSettingsModalOpen}

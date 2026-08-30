@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CloudUpload, Download, FileText, Loader2, LogOut, Trash2 } from "lucide-react";
+import { ArrowLeft, CloudUpload, Download, FileText, Loader2, LogOut, Trash2, Sparkles, FolderGit2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { downloadPackage, listProjects, type SavedProject } from "@/lib/blueprint-store";
 import {
@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth, setCustomSession } from "@/hooks/useAuth";
 import { IDEWorkspace } from "@/components/IDEWorkspace";
 import { GitHubSyncModal } from "@/components/GitHubSyncModal";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const Route = createFileRoute("/_authenticated/history")({
   head: () => ({
@@ -43,7 +44,7 @@ function HistoryPage() {
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { signOut: authSignOut } = useAuth();
+  const { user, signOut: authSignOut } = useAuth();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -78,7 +79,6 @@ function HistoryPage() {
     () => projects.find((p) => p.id === openId) ?? null,
     [projects, openId],
   );
-  const file = open?.files[Math.min(activeFile, open.files.length - 1)];
 
   const importLocal = async () => {
     setMigrating(true);
@@ -92,6 +92,7 @@ function HistoryPage() {
             answers: p.answers,
             files: p.files,
             phases: p.phases ?? [],
+            chat_history: p.chatHistory ?? [],
           },
         });
       }
@@ -111,109 +112,159 @@ function HistoryPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+      {/* Header */}
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
         <div>
-          <h1 className="font-display text-3xl font-semibold">Blueprint history</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every package saved to your account. Reopen it or download the zip again.
+          <h1 className="font-display text-3xl font-bold text-foreground">
+            Blueprint History
+          </h1>
+          <p className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">
+            Every software system, architecture, and live project saved to your account.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="secondary" size="sm">
+
+        <div className="flex items-center gap-2.5">
+          <ThemeToggle />
+
+          <Button asChild variant="secondary" size="sm" className="font-mono text-xs text-foreground font-semibold">
             <Link to="/">
-              <ArrowLeft /> New blueprint
+              <ArrowLeft className="size-3.5 mr-1" /> New Blueprint
             </Link>
           </Button>
-          <Button asChild variant="outline" size="sm">
+
+          <Button asChild variant="outline" size="sm" className="font-mono text-xs text-foreground font-semibold">
             <Link to="/profile">
-              Profile & Account
+              <User className="size-3.5 mr-1 text-primary" /> Profile & Account
             </Link>
           </Button>
-          <Button variant="ghost" size="sm" onClick={signOut}>
-            <LogOut /> Sign out
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={signOut}
+            className="font-mono text-xs text-rose-500 hover:bg-rose-500/10"
+          >
+            <LogOut className="size-3.5 mr-1" /> Sign out
           </Button>
         </div>
       </div>
 
       {local.length > 0 && (
-        <div className="panel mb-4 flex flex-wrap items-center justify-between gap-3 p-4">
-          <p className="text-sm text-muted-foreground">
-            {local.length} blueprint{local.length > 1 ? "s" : ""} are still stored only on
-            this device.
+        <div className="panel mb-6 flex flex-wrap items-center justify-between gap-3 p-4 border border-teal-500/40 bg-teal-500/5">
+          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            {local.length} blueprint{local.length > 1 ? "s" : ""} saved on this device.
           </p>
-          <Button size="sm" onClick={importLocal} disabled={migrating}>
-            {migrating ? <Loader2 className="animate-spin" /> : <CloudUpload />} Import to
-            my account
+          <Button size="sm" onClick={importLocal} disabled={migrating} className="font-mono text-xs bg-primary text-primary-foreground font-semibold">
+            {migrating ? <Loader2 className="size-3.5 animate-spin mr-1" /> : <CloudUpload className="size-3.5 mr-1" />}
+            Sync to Cloud Account
           </Button>
         </div>
       )}
 
       {isLoading && (
-        <div className="panel p-10 text-center text-sm text-muted-foreground">
-          Loading your blueprints...
+        <div className="panel p-12 text-center text-sm font-semibold text-foreground">
+          <Loader2 className="size-6 animate-spin mx-auto mb-2 text-primary" />
+          Loading your blueprints & codebase packages...
         </div>
       )}
 
       {!isLoading && projects.length === 0 && (
-        <div className="panel p-10 text-center text-sm text-muted-foreground">
-          No saved packages yet. Generate a blueprint and it will appear here.
+        <div className="panel p-12 text-center text-sm font-semibold text-foreground">
+          <FolderGit2 className="size-8 mx-auto mb-2 text-muted-foreground opacity-60" />
+          No saved packages yet. Generate a blueprint on the home page and it will appear here.
         </div>
       )}
 
+      {/* Projects List */}
       <div className="grid gap-4">
         {projects.map((p) => (
-          <article key={p.id} className="panel p-5">
+          <article
+            key={p.id}
+            className="panel p-5 sm:p-6 transition-all hover:border-primary/40 shadow-sm"
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="font-mono text-[11px] tracking-[0.2em] text-accent uppercase">
-                  {p.domain || "blueprint"}
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] tracking-wider uppercase font-bold text-teal-700 dark:text-teal-300 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/30">
+                    {p.domain || "SaaS Platform"}
+                  </span>
+                  {p.chatHistory && p.chatHistory.length > 0 && (
+                    <span className="font-mono text-[10px] font-semibold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30 flex items-center gap-1">
+                      <Sparkles className="size-2.5" /> {p.chatHistory.length} chat logs
+                    </span>
+                  )}
                 </div>
-                <h2 className="mt-1 truncate text-sm font-medium">{p.idea}</h2>
-                <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                  {new Date(p.createdAt).toLocaleString()} · {p.files.length} files
+
+                <h2 className="text-base sm:text-lg font-bold text-foreground">
+                  {p.idea}
+                </h2>
+
+                <p className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  {new Date(p.createdAt).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })} · <span className="text-teal-700 dark:text-teal-300 font-bold">{p.files.length} files generated</span>
                 </p>
+
+                {p.summary && (
+                  <p className="text-xs text-slate-700 dark:text-slate-300 mt-1 line-clamp-2">
+                    {p.summary}
+                  </p>
+                )}
               </div>
-              <div className="flex flex-wrap gap-2">
+
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
                   variant="secondary"
+                  className="font-mono text-xs font-semibold text-foreground"
                   onClick={() => {
                     setActiveFile(0);
                     setOpenId(openId === p.id ? null : p.id);
                   }}
                 >
-                  <FileText /> {openId === p.id ? "Close" : "Reopen"}
+                  <FileText className="size-3.5 mr-1" />
+                  {openId === p.id ? "Close Workspace" : "Open in Workspace"}
                 </Button>
+
                 <Button
                   size="sm"
+                  className="font-mono text-xs bg-primary text-primary-foreground font-semibold shadow-sm"
                   onClick={() =>
                     downloadPackage(p.files, p.domain || p.idea, {
                       idea: p.idea,
                       domain: p.domain,
                       answers: p.answers,
                       phases: p.phases ?? [],
+                      userFlow: p.userFlow,
                     })
                   }
                 >
-                  <Download /> .zip
+                  <Download className="size-3.5 mr-1" /> Export .zip
                 </Button>
+
                 <Button
                   size="sm"
                   variant="ghost"
                   aria-label="Delete package"
+                  className="text-rose-500 hover:bg-rose-500/10 size-8 p-0"
                   onClick={async () => {
                     await deleteRemoteProject({ data: { id: p.id } });
                     await queryClient.invalidateQueries({ queryKey: ["projects"] });
                     if (openId === p.id) setOpenId(null);
                   }}
                 >
-                  <Trash2 />
+                  <Trash2 className="size-4" />
                 </Button>
               </div>
             </div>
 
+            {/* Embedded Interactive Workspace */}
             {open?.id === p.id && (
-              <div className="mt-5">
+              <div className="mt-5 pt-4 border-t border-border">
                 <IDEWorkspace
                   files={p.files}
                   userFlow={p.userFlow}

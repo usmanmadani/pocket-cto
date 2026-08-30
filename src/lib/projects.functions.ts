@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { SavedProject } from "./blueprint-store";
+import type { SavedProject, StudioChatMessage } from "./blueprint-store";
 
 type ProjectInput = {
   id?: string | undefined;
@@ -10,6 +10,7 @@ type ProjectInput = {
   answers: { question: string; answer: string }[];
   files: { name: string; content: string }[];
   phases?: { number: number; title: string; outcome: string; prompt: string }[] | undefined;
+  chat_history?: StudioChatMessage[] | undefined;
 };
 
 export const listRemoteProjects = createServerFn({ method: "GET" })
@@ -21,7 +22,7 @@ export const listRemoteProjects = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);
-    return (data ?? []).map((row) => ({
+    return (data ?? []).map((row: any) => ({
       id: row.id as string,
       idea: row.idea as string,
       domain: row.domain as string,
@@ -30,6 +31,7 @@ export const listRemoteProjects = createServerFn({ method: "GET" })
       answers: (row.answers ?? []) as SavedProject["answers"],
       files: (row.files ?? []) as SavedProject["files"],
       phases: (row.phases ?? []) as NonNullable<SavedProject["phases"]>,
+      chatHistory: (row.chat_history ?? []) as SavedProject["chatHistory"],
     }));
   });
 
@@ -37,7 +39,7 @@ export const saveRemoteProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: ProjectInput) => input)
   .handler(async ({ data, context }): Promise<{ id: string }> => {
-    const row = {
+    const row: any = {
       user_id: context.userId,
       idea: data.idea,
       domain: data.domain ?? "",
@@ -45,6 +47,7 @@ export const saveRemoteProject = createServerFn({ method: "POST" })
       answers: data.answers ?? [],
       files: data.files ?? [],
       phases: data.phases ?? [],
+      chat_history: data.chat_history ?? [],
       ...(data.id ? { id: data.id } : {}),
     };
     const { data: saved, error } = await context.supabase
