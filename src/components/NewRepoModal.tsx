@@ -30,8 +30,8 @@ interface NewRepoModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   files: BlueprintFile[];
-  defaultName?: string;
-  onRepoCreated?: (repoFullName: string) => void;
+  defaultName?: string | undefined;
+  onRepoCreated?: ((repoFullName: string) => void) | undefined;
 }
 
 export function NewRepoModal({
@@ -54,7 +54,7 @@ export function NewRepoModal({
   const [result, setResult] = useState<{
     repoFullName: string;
     repoUrl: string;
-    commitSha?: string;
+    commitSha?: string | undefined;
   } | null>(null);
 
   const token =

@@ -10,6 +10,8 @@ import {
   Github,
   GitBranch,
   History,
+  Code2,
+
 
   ListOrdered,
   Loader2,

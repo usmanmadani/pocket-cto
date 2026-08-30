@@ -42,12 +42,12 @@ import { downloadPackage } from "@/lib/blueprint-store";
 
 interface LovableStudioBuilderProps {
   files: BlueprintFile[];
-  onUpdateFile?: (fileName: string, newContent: string) => void;
-  userFlow?: UserFlowData | null;
+  onUpdateFile?: ((fileName: string, newContent: string) => void) | undefined;
+  userFlow?: UserFlowData | null | undefined;
   ideaTitle: string;
-  domain?: string;
-  repoFullName?: string;
-  codebaseContext?: CodebaseContext | null;
+  domain?: string | undefined;
+  repoFullName?: string | undefined;
+  codebaseContext?: CodebaseContext | null | undefined;
 }
 
 export function LovableStudioBuilder({
@@ -72,7 +72,7 @@ export function LovableStudioBuilder({
       text: string;
       tasks?: string[];
       filesChanged?: string[];
-      migrationSql?: string;
+      migrationSql?: string | undefined;
     }>
   >([
     {
