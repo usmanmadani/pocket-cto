@@ -40,7 +40,8 @@ import {
   type Survey,
   type UserFlowData,
 } from "@/lib/architect-client";
-import { downloadPackage, saveProject } from "@/lib/blueprint-store";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { downloadPackage, saveProject, listProjects, type SavedProject } from "@/lib/blueprint-store";
 import { saveRemoteProject } from "@/lib/projects.functions";
 import { useAuth, setCustomSession } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -242,6 +243,23 @@ function Home() {
     setView("studio");
   }, [raw, codebaseContext, idea]);
 
+  const [recentProjects, setRecentProjects] = useState<SavedProject[]>([]);
+  useEffect(() => {
+    setRecentProjects(listProjects().slice(0, 6));
+  }, [stage]);
+
+  const handleSelectRecentProject = useCallback((project: SavedProject) => {
+    setIdea(project.idea);
+    const serialized = project.files
+      .map((f) => `===FILE: ${f.name}===\n${f.content}`)
+      .join("\n\n");
+    setRaw(serialized);
+    if (project.userFlow) setUserFlow(project.userFlow);
+    if (project.codebaseContext) setCodebaseContext(project.codebaseContext);
+    setStage("blueprint");
+    setView("studio");
+  }, []);
+
   const runUserFlow = useCallback(async () => {
     if (!survey) return;
     const ctrl = new AbortController();
@@ -439,7 +457,7 @@ function Home() {
               Pocket CTO
             </span>
           </Link>
-          <div className="flex items-center gap-2">
+            <ThemeToggle />
             {user ? (
               <>
                 <Button
@@ -623,6 +641,48 @@ function Home() {
               </div>
             </div>
           </div>
+
+          {/* Direct Recent Projects Selector (Without entering History) */}
+          {stage === "idea" && recentProjects.length > 0 && (
+            <div className="mt-5 text-left">
+              <div className="flex items-center justify-between pb-2">
+                <span className="font-mono text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Sparkles className="size-3 text-teal-400" /> Continue an existing project:
+                </span>
+                <Link
+                  to="/history"
+                  className="font-mono text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                >
+                  View all <ArrowRight className="size-2.5" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                {recentProjects.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSelectRecentProject(p)}
+                    className="flex flex-col text-left p-3 rounded-xl border border-border/70 bg-card/60 hover:bg-card hover:border-primary/50 transition-all group shadow-sm"
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="font-mono text-[10px] uppercase font-bold text-primary truncate max-w-[150px]">
+                        {p.domain || "SaaS App"}
+                      </span>
+                      <span className="font-mono text-[9px] text-muted-foreground">
+                        {p.files.length} files
+                      </span>
+                    </div>
+                    <h4 className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                      {p.idea}
+                    </h4>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                      {p.summary || "Click to open directly in Studio"}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
