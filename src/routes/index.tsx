@@ -25,6 +25,7 @@ import { ThoughtStream } from "@/components/ThoughtStream";
 import { GitHubSyncModal } from "@/components/GitHubSyncModal";
 import { UserFlowCanvas } from "@/components/UserFlowCanvas";
 import { IDEWorkspace } from "@/components/IDEWorkspace";
+import { LovableStudioBuilder } from "@/components/LovableStudioBuilder";
 import { AutonomousBuilderModal } from "@/components/AutonomousBuilderModal";
 import { NewRepoModal } from "@/components/NewRepoModal";
 import {
@@ -83,7 +84,7 @@ function Home() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [raw, setRaw] = useState("");
   const [activeFile, setActiveFile] = useState(0);
-  const [view, setView] = useState<"files" | "prompts" | "userflow">("files");
+  const [view, setView] = useState<"studio" | "files" | "prompts" | "userflow">("studio");
   const [phaseRaw, setPhaseRaw] = useState("");
   const [phaseBusy, setPhaseBusy] = useState(false);
   const [userFlow, setUserFlow] = useState<UserFlowData | null>(null);
@@ -593,21 +594,31 @@ function Home() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => setView("files")}
+                  onClick={() => setView("studio")}
                   className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
-                    view === "files"
-                      ? "border-accent bg-accent/10 text-accent"
+                    view === "studio"
+                      ? "border-primary bg-primary/10 text-primary font-semibold"
                       : "border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <FileText className="size-3.5" /> Blueprint files
+                  <Sparkles className="size-3.5 text-primary" /> Studio AI Builder
+                </button>
+                <button
+                  onClick={() => setView("files")}
+                  className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
+                    view === "files"
+                      ? "border-accent bg-accent/10 text-accent font-semibold"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <FileText className="size-3.5" /> IDE Workspace
                 </button>
                 <button
                   onClick={() => (userFlow ? setView("userflow") : runUserFlow())}
                   disabled={!files.length || busy || userFlowBusy}
                   className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
                     view === "userflow"
-                      ? "border-accent bg-accent/10 text-accent"
+                      ? "border-accent bg-accent/10 text-accent font-semibold"
                       : "border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -623,7 +634,7 @@ function Home() {
                   disabled={!files.length || busy || phaseBusy}
                   className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
                     view === "prompts"
-                      ? "border-accent bg-accent/10 text-accent"
+                      ? "border-accent bg-accent/10 text-accent font-semibold"
                       : "border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -656,6 +667,28 @@ function Home() {
                 </Button>
               </div>
             </div>
+
+            {view === "studio" && (
+              <div className="space-y-4">
+                <LovableStudioBuilder
+                  files={files}
+                  userFlow={userFlow}
+                  ideaTitle={idea}
+                  domain={survey?.domain}
+                  repoFullName={codebaseContext?.repoName}
+                  codebaseContext={codebaseContext}
+                  onUpdateFile={(fileName, newContent) => {
+                    setRaw((prev) => {
+                      const marker = `===FILE: ${fileName}===`;
+                      if (!prev.includes(marker)) return prev;
+                      const parts = prev.split(new RegExp(`===FILE:\\s*${fileName}\\s*===`));
+                      const after = parts[1] ? parts[1].replace(/^[\s\S]*?(?====FILE:|$)/, `\n${newContent}\n`) : "";
+                      return parts[0] + marker + after;
+                    });
+                  }}
+                />
+              </div>
+            )}
 
             {view === "files" && (
               <div className="space-y-4">
