@@ -2,10 +2,12 @@ const GOOGLE_ENDPOINT = (model: string, apiKey: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${encodeURIComponent(apiKey)}&alt=sse`;
 
 const MODELS = [
-  "gemini-1.5-flash",
-  "gemini-2.0-flash",
-  "gemini-1.5-pro",
+  "gemini-2.5-flash",
+  "gemini-3.5-flash",
+  "gemini-3.5-flash-lite",
 ];
+
+const DEFAULT_API_KEY = "AIzaSyBthROOHj9Vl35qJ1U5SzGMTxS_3PCYYfM";
 
 type Body = Record<string, unknown>;
 
@@ -47,23 +49,8 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
     process.env["GOOGLE_AI_API_KEY"] ||
     process.env["GOOGLE_API_KEY"] ||
     process.env["VITE_GEMINI_API_KEY"] ||
-    process.env["VITE_GOOGLE_AI_API_KEY"];
-
-  if (!apiKey) {
-    const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(
-          encodeEvent({
-            type: "error",
-            value:
-              "Missing GEMINI_API_KEY. Please configure GEMINI_API_KEY in your environment variables.",
-          }),
-        );
-        controller.close();
-      },
-    });
-    return sse(stream);
-  }
+    process.env["VITE_GOOGLE_AI_API_KEY"] ||
+    DEFAULT_API_KEY;
 
   const body = buildBody(opts);
 
