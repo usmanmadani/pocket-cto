@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Github, Loader2, Mail, Sparkles, KeyRound, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Github, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +54,6 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [authMethod, setAuthMethod] = useState<"password" | "magic_link">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -91,7 +90,7 @@ function AuthPage() {
     }
   }, [user, loading, navigate]);
 
-  const submitPassword = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError("");
@@ -102,7 +101,7 @@ function AuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/history`,
+            emailRedirectTo: window.location.origin,
             data: { display_name: name || email.split("@")[0] },
           },
         });
@@ -116,27 +115,6 @@ function AuthPage() {
         });
         if (err) throw err;
       }
-    } catch (err) {
-      setError((err as Error).message);
-    }
-    setBusy(false);
-  };
-
-  const submitMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const { error: err } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/history`,
-        },
-      });
-      if (err) throw err;
-      setNotice(`✨ 1-Click sign-in link sent to ${email}! Check your inbox to sign in instantly.`);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -170,8 +148,8 @@ function AuthPage() {
   };
 
   return (
-    <main className="hero-glow min-h-screen bg-[#070a13] text-foreground">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 border-b border-border/60">
+    <main className="hero-glow min-h-screen">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <Link to="/" className="flex items-center gap-2.5 group">
           <img
             src="/icon.png"
@@ -182,159 +160,88 @@ function AuthPage() {
             Pocket CTO
           </span>
         </Link>
-        <Button asChild variant="ghost" size="sm" className="font-mono text-xs text-foreground">
+        <Button asChild variant="ghost" size="sm" className="font-mono text-xs">
           <Link to="/">
-            <ArrowLeft className="size-3.5 mr-1" /> Back
+            <ArrowLeft /> Back
           </Link>
         </Button>
       </header>
 
       <section className="mx-auto max-w-md px-6 py-10">
-        <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground">
-          {mode === "signin" ? "Sign in to Pocket CTO" : "Create your account"}
+        <h1 className="font-display text-3xl font-semibold">
+          {mode === "signin" ? "Sign in" : "Create your account"}
         </h1>
-        <p className="mt-2 text-sm font-medium text-slate-800 dark:text-slate-200">
-          Your software systems, project workspaces, and studio chats sync to your account.
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your blueprints, survey answers and build prompts sync to your account.
         </p>
 
-        <div className="panel mt-6 p-6 shadow-xl border border-border/80 bg-[#0a0f1d]">
-          {/* OAuth Buttons */}
+        <div className="panel mt-6 p-5">
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <Button
               variant="outline"
-              className="w-full gap-2 border-border/80 bg-background/50 hover:bg-background text-foreground font-semibold"
+              className="w-full gap-2 border-border/80 bg-background/50 hover:bg-background"
               onClick={github}
             >
               <Github className="size-4" /> GitHub
             </Button>
             <Button
               variant="outline"
-              className="w-full gap-2 border-border/80 bg-background/50 hover:bg-background text-foreground font-semibold"
+              className="w-full gap-2 border-border/80 bg-background/50 hover:bg-background"
               onClick={google}
             >
               <GoogleIcon className="size-4" /> Google
             </Button>
           </div>
 
-          <div className="my-5 flex items-center gap-3 font-mono text-[11px] text-slate-700 dark:text-slate-300 font-semibold">
-            <span className="h-px flex-1 bg-border" /> or sign in with email <span className="h-px flex-1 bg-border" />
+          <div className="my-5 flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
+            <span className="h-px flex-1 bg-border" /> or email <span className="h-px flex-1 bg-border" />
           </div>
 
-          {/* Email Method Selector */}
-          <div className="flex items-center gap-1.5 p-1 mb-4 rounded-lg bg-background/60 border border-border/60">
-            <button
-              type="button"
-              onClick={() => setAuthMethod("password")}
-              className={`flex-1 py-1 px-2 rounded-md font-mono text-xs font-semibold transition-all ${
-                authMethod === "password"
-                  ? "bg-primary/20 text-primary border border-primary/30"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Password
-            </button>
-            <button
-              type="button"
-              onClick={() => setAuthMethod("magic_link")}
-              className={`flex-1 py-1 px-2 rounded-md font-mono text-xs font-semibold transition-all ${
-                authMethod === "magic_link"
-                  ? "bg-teal-500/20 text-teal-300 border border-teal-500/30"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              ✨ Magic Link
-            </button>
-          </div>
-
-          {/* Form: Password Mode */}
-          {authMethod === "password" ? (
-            <form onSubmit={submitPassword} className="space-y-4">
-              {mode === "signup" && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-xs font-semibold text-foreground">
-                    Display Name
-                  </Label>
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ada Lovelace"
-                    autoComplete="name"
-                    className="bg-background/60 text-foreground"
-                  />
-                </div>
-              )}
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-xs font-semibold text-foreground">
-                  Email Address
-                </Label>
+          <form onSubmit={submit} className="space-y-4">
+            {mode === "signup" && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Display name</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="developer@example.com"
-                  autoComplete="email"
-                  className="bg-background/60 text-foreground"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ada Lovelace"
+                  autoComplete="name"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-xs font-semibold text-foreground">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                  className="bg-background/60 text-foreground"
-                />
-              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              />
+            </div>
 
-              {error && <p className="text-xs font-semibold text-rose-500">{error}</p>}
-              {notice && <p className="text-xs font-semibold text-teal-400">{notice}</p>}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {notice && <p className="text-sm text-accent">{notice}</p>}
 
-              <Button type="submit" className="w-full bg-primary font-bold text-primary-foreground shadow-md" disabled={busy}>
-                {busy ? <Loader2 className="size-4 animate-spin mr-1.5" /> : null}
-                {mode === "signin" ? "Sign in with Email" : "Create Account"}
-              </Button>
-            </form>
-          ) : (
-            /* Form: Magic Link Mode */
-            <form onSubmit={submitMagicLink} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="magic-email" className="text-xs font-semibold text-foreground">
-                  Email Address
-                </Label>
-                <Input
-                  id="magic-email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="developer@example.com"
-                  autoComplete="email"
-                  className="bg-background/60 text-foreground"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  We'll email you a passwordless 1-click login link.
-                </p>
-              </div>
-
-              {error && <p className="text-xs font-semibold text-rose-500">{error}</p>}
-              {notice && <p className="text-xs font-semibold text-teal-400">{notice}</p>}
-
-              <Button type="submit" className="w-full bg-teal-500 font-bold text-slate-950 shadow-md hover:bg-teal-400" disabled={busy || !email}>
-                {busy ? <Loader2 className="size-4 animate-spin mr-1.5" /> : <Mail className="size-4 mr-1.5" />}
-                Send 1-Click Magic Link
-              </Button>
-            </form>
-          )}
+            <Button type="submit" className="w-full" disabled={busy}>
+              {busy && <Loader2 className="animate-spin" />}
+              {mode === "signin" ? "Sign in" : "Create account"}
+            </Button>
+          </form>
 
           <button
             type="button"
@@ -343,7 +250,7 @@ function AuthPage() {
               setError("");
               setNotice("");
             }}
-            className="mt-4 w-full font-mono text-xs text-slate-700 dark:text-slate-300 font-semibold hover:text-primary transition-colors text-center"
+            className="mt-4 w-full font-mono text-[12px] text-muted-foreground hover:text-primary"
           >
             {mode === "signin"
               ? "No account? Create one"

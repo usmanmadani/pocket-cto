@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { listProjects } from "@/lib/blueprint-store";
 import { getStoredIntegrations } from "@/components/ProjectSettingsModal";
-import { supabase } from "@/integrations/supabase/client";
 import {
   User,
   Github,
@@ -21,12 +20,8 @@ import {
   Layers,
   KeyRound,
   RefreshCw,
-  Check,
-  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -44,20 +39,16 @@ function ProfilePage() {
   const projects = listProjects();
   const integrations = getStoredIntegrations();
 
-  // Derive resolved user identity data
-  const initialEmail = user?.email || session?.user?.email || customUser?.email || "developer@pocketcto.dev";
-  const [currentEmail, setCurrentEmail] = useState(initialEmail);
-  const [inputEmail, setInputEmail] = useState(initialEmail);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
-  const [syncingEmail, setSyncingEmail] = useState(false);
-  const [emailSyncMessage, setEmailSyncMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Derive resolved user identity data
+  const email = user?.email || session?.user?.email || customUser?.email || "developer@pocketcto.dev";
   const name =
     user?.user_metadata?.full_name ||
     user?.user_metadata?.display_name ||
     session?.user?.user_metadata?.["full_name"] ||
     customUser?.user_metadata?.display_name ||
-    currentEmail.split("@")[0];
+    email.split("@")[0];
 
   // Resolve best profile picture: Google picture vs GitHub avatar_url
   const avatarUrl =
@@ -68,64 +59,14 @@ function ProfilePage() {
     "";
 
   const hasGoogle = Boolean(session?.user);
-  const hasGithub = Boolean(customUser || (typeof window !== "undefined" && localStorage.getItem("specengine.github_token")));
+  const hasGithub = Boolean(customUser || localStorage.getItem("specengine.github_token"));
 
   const handleManualSync = () => {
     setSyncStatus("Checking Google and GitHub identities...");
     setTimeout(() => {
-      setSyncStatus(`✅ Accounts synchronized successfully! Both Google & GitHub are linked to ${currentEmail}.`);
+      setSyncStatus("✅ Accounts synchronized successfully! Both Google & GitHub are linked to your canonical email.");
       setTimeout(() => setSyncStatus(null), 4000);
-    }, 600);
-  };
-
-  const handleDirectEmailSync = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputEmail.trim() || !inputEmail.includes("@")) {
-      setEmailSyncMessage({ type: "error", text: "Please enter a valid email address." });
-      return;
-    }
-
-    setSyncingEmail(true);
-    setEmailSyncMessage(null);
-
-    try {
-      // 1. Update remote Supabase profile if session exists
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session?.user?.id) {
-        const { error } = await supabase
-          .from("profiles")
-          .update({ email: inputEmail.trim() } as any)
-          .eq("id", sessionData.session.user.id);
-        if (error) throw error;
-      }
-
-      // 2. Update custom user cache if present
-      const storedCustom = localStorage.getItem("specengine.custom_user");
-      if (storedCustom) {
-        try {
-          const parsed = JSON.parse(storedCustom);
-          parsed.email = inputEmail.trim();
-          localStorage.setItem("specengine.custom_user", JSON.stringify(parsed));
-        } catch {
-          /* ignore */
-        }
-      }
-
-      setCurrentEmail(inputEmail.trim());
-      setEmailSyncMessage({
-        type: "success",
-        text: `✅ Primary canonical email synced to "${inputEmail.trim()}". All projects and auth providers are now unified.`,
-      });
-
-      setTimeout(() => setEmailSyncMessage(null), 5000);
-    } catch (err) {
-      setEmailSyncMessage({
-        type: "error",
-        text: `Failed to update email: ${(err as Error).message}`,
-      });
-    } finally {
-      setSyncingEmail(false);
-    }
+    }, 800);
   };
 
   const handleSignOut = async () => {
@@ -211,7 +152,7 @@ function ProfilePage() {
               </div>
 
               <p className="font-mono text-xs text-muted-foreground flex items-center gap-2">
-                <Mail className="size-3.5 text-primary" /> {currentEmail}
+                <Mail className="size-3.5 text-primary" /> {email}
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-2">
@@ -243,61 +184,15 @@ function ProfilePage() {
           </div>
         </div>
 
-        {/* Manual Direct Email Sync Card */}
-        <div className="rounded-2xl border border-teal-500/40 bg-teal-500/5 p-6 sm:p-7 space-y-4">
-          <div className="space-y-1">
-            <h3 className="font-display text-base font-bold text-foreground flex items-center gap-2">
-              <Mail className="size-4 text-teal-400" /> Manual Email & Account Link
-            </h3>
-            <p className="text-xs text-muted-foreground max-w-2xl">
-              Link your manual or corporate email address directly to unify all your generated blueprints, studio chat logs, and cloud deployments across Google and GitHub.
-            </p>
-          </div>
-
-          <form onSubmit={handleDirectEmailSync} className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
-            <div className="flex-1">
-              <Input
-                type="email"
-                required
-                value={inputEmail}
-                onChange={(e) => setInputEmail(e.target.value)}
-                placeholder="Enter your email to sync..."
-                className="bg-background/80 border-border/80 text-foreground font-mono text-xs h-10"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={syncingEmail || inputEmail === currentEmail}
-              className="h-10 px-5 bg-teal-500 font-mono text-xs font-bold text-slate-950 shadow-md hover:bg-teal-400"
-            >
-              <RefreshCw className={`size-3.5 mr-1.5 ${syncingEmail ? "animate-spin" : ""}`} />
-              {syncingEmail ? "Syncing..." : "Link & Sync Email"}
-            </Button>
-          </form>
-
-          {emailSyncMessage && (
-            <div
-              className={`rounded-xl p-3 text-xs font-mono flex items-center gap-2 ${
-                emailSyncMessage.type === "success"
-                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                  : "border border-rose-500/30 bg-rose-500/10 text-rose-300"
-              }`}
-            >
-              {emailSyncMessage.type === "success" ? <Check className="size-4 shrink-0 text-emerald-400" /> : <AlertCircle className="size-4 shrink-0 text-rose-400" />}
-              <span>{emailSyncMessage.text}</span>
-            </div>
-          )}
-        </div>
-
         {/* Account Sync Card */}
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <h3 className="font-display text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-                <Sparkles className="size-4 text-primary" /> Unified Google & GitHub Identity
+                <Sparkles className="size-4 text-primary" /> Unified Account Synchronization
               </h3>
               <p className="text-xs text-muted-foreground max-w-xl">
-                When you sign in with Google or GitHub with matching emails ({currentEmail}), Pocket CTO automatically merges and unifies your account to prevent duplicates.
+                When you sign in with Google or GitHub with matching emails ({email}), Pocket CTO automatically unifies your projects, tokens, and cloud configurations into one seamless account.
               </p>
             </div>
 
@@ -305,7 +200,7 @@ function ProfilePage() {
               onClick={handleManualSync}
               className="gap-2 bg-primary font-mono text-xs text-primary-foreground shadow-md hover:opacity-95"
             >
-              <RefreshCw className="size-3.5" /> Re-Sync Identities
+              <RefreshCw className="size-3.5" /> Sync Accounts
             </Button>
           </div>
 
