@@ -46,11 +46,11 @@ interface AutonomousBuilderModalProps {
   onOpenChange: (open: boolean) => void;
   files: BlueprintFile[];
   onFilesUpdated: (newFiles: BlueprintFile[]) => void;
-  userFlow?: UserFlowData | null;
-  codebaseContext?: CodebaseContext | null;
-  repoFullName?: string;
+  userFlow?: UserFlowData | null | undefined;
+  codebaseContext?: CodebaseContext | null | undefined;
+  repoFullName?: string | undefined;
   ideaTitle: string;
-  domain?: string;
+  domain?: string | undefined;
 }
 
 export function AutonomousBuilderModal({
@@ -97,7 +97,7 @@ export function AutonomousBuilderModal({
           codebaseContext: effectiveRepo
             ? {
                 repoName: effectiveRepo,
-                fileTree: codebaseContext?.schemaFiles?.map((f) => f.path),
+                fileTree: codebaseContext?.fileTree,
               }
             : undefined,
           blueprintSummary: `${ideaTitle} (${domain || "Software System"})`,
