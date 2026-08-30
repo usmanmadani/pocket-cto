@@ -3,13 +3,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SavedProject } from "./blueprint-store";
 
 type ProjectInput = {
-  id?: string;
+  id?: string | undefined;
   idea: string;
   domain: string;
   summary: string;
   answers: { question: string; answer: string }[];
   files: { name: string; content: string }[];
-  phases?: { number: number; title: string; outcome: string; prompt: string }[];
+  phases?: { number: number; title: string; outcome: string; prompt: string }[] | undefined;
 };
 
 export const listRemoteProjects = createServerFn({ method: "GET" })
