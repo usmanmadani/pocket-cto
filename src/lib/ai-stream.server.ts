@@ -78,9 +78,8 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
   };
 
   const jsonSchema = (opts.format as { schema?: unknown } | undefined)?.schema;
-  if (jsonSchema) {
+  if (jsonSchema || opts.format) {
     generationConfig["responseMimeType"] = "application/json";
-    generationConfig["responseSchema"] = toGoogleSchema(jsonSchema);
   }
 
   const body: Body = {

@@ -274,21 +274,27 @@ function Home() {
       if ((err as Error)?.name !== "AbortError") setError(String(err));
     });
     try {
-      const parsed = JSON.parse(json) as UserFlowData;
+      const cleanJson = json
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+      const parsed = JSON.parse(cleanJson) as UserFlowData;
       setUserFlow(parsed);
       const generated = parseFiles(raw);
       await persist({
         idea,
-        domain: survey.domain,
-        summary: survey.summary,
+        domain: survey?.domain ?? "SaaS Platform",
+        summary: survey?.summary ?? "",
         answers: answerList,
         files: generated,
         phases: parsePhases(phaseRaw),
         userFlow: parsed,
         codebaseContext: codebaseContext ?? undefined,
       });
-    } catch {
-      if (!error) setError("The agent returned an unreadable user flow. Try again.");
+    } catch (parseErr) {
+      if (!error) {
+        setError(`Could not render user flow: ${String(parseErr)}`);
+      }
     }
     setUserFlowBusy(false);
   }, [survey, answers, idea, raw, phaseRaw, codebaseContext, persist, error]);
