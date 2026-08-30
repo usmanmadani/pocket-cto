@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { GITHUB_TOKEN_KEY } from "@/hooks/useAuth";
 
 interface GitControlBarProps {
-  repoFullName?: string;
+  repoFullName?: string | undefined;
   files: { name: string; content: string }[];
   onOpenSyncModal: () => void;
   onOpenPRModal: () => void;
@@ -40,7 +40,7 @@ export function GitControlBar({
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error" | "info";
     text: string;
-    url?: string;
+    url?: string | undefined;
   } | null>(null);
   const [branch, setBranch] = useState("main");
 
@@ -157,7 +157,9 @@ export function GitControlBar({
       }, 2000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [autoSync, files.length]);
+
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 bg-[#080d1a] px-4 py-2.5 text-xs text-foreground">

@@ -18,9 +18,9 @@ import type { BlueprintFile, UserFlowData } from "@/lib/architect-client";
 
 interface LivePreviewSandboxProps {
   files: BlueprintFile[];
-  userFlow?: UserFlowData | null;
-  ideaTitle?: string;
-  domain?: string;
+  userFlow?: UserFlowData | null | undefined;
+  ideaTitle?: string | undefined;
+  domain?: string | undefined;
 }
 
 export function LivePreviewSandbox({

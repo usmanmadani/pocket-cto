@@ -50,9 +50,9 @@ export interface GitHubRepo {
 interface GitHubSyncModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRepoSynced: (context: CodebaseContext) => void;
-  activeContext?: CodebaseContext | null;
-  onClearContext?: () => void;
+  onRepoSynced?: ((context: CodebaseContext) => void) | undefined;
+  activeContext?: CodebaseContext | null | undefined;
+  onClearContext?: (() => void) | undefined;
 }
 
 const STORAGE_TOKEN_KEY = "specengine.github_token";
@@ -171,7 +171,7 @@ export function GitHubSyncModal({
       };
 
       if (res.ok && result.success && result.codebaseContext) {
-        onRepoSynced(result.codebaseContext);
+        onRepoSynced?.(result.codebaseContext);
         onOpenChange(false);
       } else {
         setError(result.error || "Failed to sync codebase context.");

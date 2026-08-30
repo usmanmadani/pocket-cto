@@ -1,5 +1,7 @@
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/responses";
-const MODEL = "openai/gpt-5.6-sol";
+const GOOGLE_ENDPOINT = (model: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
+
+const MODELS = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"];
 
 type Body = Record<string, unknown>;
 
@@ -15,47 +17,82 @@ function encodeEvent(obj: unknown) {
   return new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`);
 }
 
+/** Google's responseSchema is OpenAPI-flavoured: strip JSON-Schema-only keywords. */
+function toGoogleSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(toGoogleSchema);
+  if (!schema || typeof schema !== "object") return schema;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
+    if (key === "additionalProperties" || key === "strict" || key === "name") continue;
+    out[key] = toGoogleSchema(value);
+  }
+  return out;
+}
+
+function thinkingBudget(effort: StreamOptions["effort"]) {
+  if (effort === "low") return 1024;
+  if (effort === "high") return 16384;
+  return 4096;
+}
+
 /**
- * Calls the Lovable AI Gateway Responses API and re-streams it as a simple
+ * Calls the Google Gemini API (streaming) and re-streams it as a simple
  * SSE feed of `{ type: "thought" | "text" | "error" | "done", value }` events.
  */
 export async function streamArchitect(opts: StreamOptions): Promise<Response> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  const apiKey = process.env["GOOGLE_AI_API_KEY"];
   if (!apiKey) {
-    return new Response("Missing LOVABLE_API_KEY", { status: 500 });
+    return new Response("Missing GOOGLE_AI_API_KEY", { status: 500 });
+  }
+
+  const generationConfig: Body = {
+    temperature: 0.7,
+    thinkingConfig: {
+      includeThoughts: true,
+      thinkingBudget: thinkingBudget(opts.effort),
+    },
+  };
+
+  const jsonSchema = (opts.format as { schema?: unknown } | undefined)?.schema;
+  if (jsonSchema) {
+    generationConfig["responseMimeType"] = "application/json";
+    generationConfig["responseSchema"] = toGoogleSchema(jsonSchema);
   }
 
   const body: Body = {
-    model: MODEL,
-    input: opts.input,
-    instructions: opts.instructions,
-    stream: true,
-    store: false,
-    reasoning: { effort: opts.effort ?? "medium", summary: "auto" },
-    include: ["reasoning.encrypted_content"],
+    systemInstruction: { parts: [{ text: opts.instructions }] },
+    contents: [{ role: "user", parts: [{ text: opts.input }] }],
+    generationConfig,
   };
-  if (opts.format) body["text"] = { format: opts.format };
 
-  const upstream = await fetch(GATEWAY, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": apiKey,
-      "X-Lovable-AIG-SDK": "fetch",
-    },
-    body: JSON.stringify(body),
-    signal: opts.signal ?? null,
-  });
+  const authHeaders: Record<string, string> = { "x-goog-api-key": apiKey };
 
-  if (!upstream.ok || !upstream.body) {
-    const message = await upstream.text().catch(() => "");
-    const status = upstream.status;
+  // Gemini returns 503 when a model is momentarily saturated: fall back across
+  // models and retry with a short backoff before giving up.
+  let upstream: Response | undefined;
+  for (let attempt = 0; attempt < MODELS.length * 2; attempt++) {
+    const model = MODELS[attempt % MODELS.length]!;
+    upstream = await fetch(GOOGLE_ENDPOINT(model), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify(body),
+      signal: opts.signal ?? null,
+    });
+    if (upstream.ok && upstream.body) break;
+    if (upstream.status !== 503 && upstream.status !== 429) break;
+    await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+  }
+
+  if (!upstream || !upstream.ok || !upstream.body) {
+    const message = await upstream?.text().catch(() => "");
+    const status = upstream?.status ?? 500;
     const friendly =
-      status === 402
-        ? "AI credits are exhausted for this workspace. Add credits in Lovable to continue."
-        : status === 429
-          ? "The AI service is rate limited right now. Please retry in a moment."
+      status === 401 || status === 403
+        ? "Google AI rejected the credentials. Check the API key or its project permissions."
+        : status === 429 || status === 503
+          ? "Google AI is busy right now. Please retry in a moment."
           : message || `AI request failed (${status}).`;
+
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(encodeEvent({ type: "error", value: friendly }));
@@ -76,7 +113,7 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
         const chunks = buffer.split("\n\n");
         buffer = chunks.pop() ?? "";
         for (const chunk of chunks) {
@@ -85,25 +122,27 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
             const payload = line.slice(5).trim();
             if (!payload || payload === "[DONE]") continue;
             let evt: {
-              type?: string;
-              delta?: string;
-              response?: { error?: { message?: string } };
+              candidates?: Array<{
+                content?: { parts?: Array<{ text?: string; thought?: boolean }> };
+              }>;
+              error?: { message?: string };
             };
             try {
               evt = JSON.parse(payload);
             } catch {
               continue;
             }
-            if (evt.type === "response.reasoning_summary_text.delta" && evt.delta) {
-              await writer.write(encodeEvent({ type: "thought", value: evt.delta }));
-            } else if (evt.type === "response.output_text.delta" && evt.delta) {
-              await writer.write(encodeEvent({ type: "text", value: evt.delta }));
-            } else if (evt.type === "response.failed" || evt.type === "error") {
+            if (evt.error) {
               await writer.write(
-                encodeEvent({
-                  type: "error",
-                  value: evt.response?.error?.message ?? "Generation failed.",
-                }),
+                encodeEvent({ type: "error", value: evt.error.message ?? "Generation failed." }),
+              );
+              continue;
+            }
+            const parts = evt.candidates?.[0]?.content?.parts ?? [];
+            for (const part of parts) {
+              if (!part.text) continue;
+              await writer.write(
+                encodeEvent({ type: part.thought ? "thought" : "text", value: part.text }),
               );
             }
           }
@@ -121,7 +160,6 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
 
   return sse(readable);
 }
-
 
 function sse(stream: ReadableStream) {
   return new Response(stream, {

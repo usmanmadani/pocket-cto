@@ -24,8 +24,8 @@ import { GITHUB_TOKEN_KEY } from "@/hooks/useAuth";
 interface GitPRModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  repoFullName?: string;
-  defaultTitle?: string;
+  repoFullName?: string | undefined;
+  defaultTitle?: string | undefined;
 }
 
 export function GitPRModal({

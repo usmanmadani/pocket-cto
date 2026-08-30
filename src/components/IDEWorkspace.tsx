@@ -41,11 +41,11 @@ import { downloadPackage } from "@/lib/blueprint-store";
 
 interface IDEWorkspaceProps {
   files: BlueprintFile[];
-  onUpdateFile?: (fileName: string, newContent: string) => void;
-  userFlow?: UserFlowData | null;
+  onUpdateFile?: ((fileName: string, newContent: string) => void) | undefined;
+  userFlow?: UserFlowData | null | undefined;
   ideaTitle: string;
-  domain?: string;
-  repoFullName?: string;
+  domain?: string | undefined;
+  repoFullName?: string | undefined;
   onOpenSyncModal: () => void;
 }
 
