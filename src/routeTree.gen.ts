@@ -17,8 +17,12 @@ import { Route as ApiBlueprintRouteImport } from './routes/api/blueprint'
 import { Route as ApiPhasesRouteImport } from './routes/api/phases'
 import { Route as ApiSurveyRouteImport } from './routes/api/survey'
 import { Route as ApiUserFlowRouteImport } from './routes/api/user-flow'
+import { Route as ApiAgentCodeRouteImport } from './routes/api/agent/code'
+import { Route as ApiAgentPlanRouteImport } from './routes/api/agent/plan'
+import { Route as ApiAgentTestsRouteImport } from './routes/api/agent/tests'
 import { Route as ApiDiagnosticsFixRouteImport } from './routes/api/diagnostics/fix'
 import { Route as ApiGithubCommitRouteImport } from './routes/api/github/commit'
+import { Route as ApiGithubCreateRepoRouteImport } from './routes/api/github/create-repo'
 import { Route as ApiGithubPrRouteImport } from './routes/api/github/pr'
 import { Route as ApiGithubPullRouteImport } from './routes/api/github/pull'
 import { Route as ApiGithubReposRouteImport } from './routes/api/github/repos'
@@ -64,6 +68,21 @@ const ApiUserFlowRoute = ApiUserFlowRouteImport.update({
   path: '/api/user-flow',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAgentCodeRoute = ApiAgentCodeRouteImport.update({
+  id: '/api/agent/code',
+  path: '/api/agent/code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentPlanRoute = ApiAgentPlanRouteImport.update({
+  id: '/api/agent/plan',
+  path: '/api/agent/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAgentTestsRoute = ApiAgentTestsRouteImport.update({
+  id: '/api/agent/tests',
+  path: '/api/agent/tests',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDiagnosticsFixRoute = ApiDiagnosticsFixRouteImport.update({
   id: '/api/diagnostics/fix',
   path: '/api/diagnostics/fix',
@@ -72,6 +91,11 @@ const ApiDiagnosticsFixRoute = ApiDiagnosticsFixRouteImport.update({
 const ApiGithubCommitRoute = ApiGithubCommitRouteImport.update({
   id: '/api/github/commit',
   path: '/api/github/commit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubCreateRepoRoute = ApiGithubCreateRepoRouteImport.update({
+  id: '/api/github/create-repo',
+  path: '/api/github/create-repo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGithubPrRoute = ApiGithubPrRouteImport.update({
@@ -108,8 +132,12 @@ export interface FileRoutesByFullPath {
   '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
   '/api/user-flow': typeof ApiUserFlowRoute
+  '/api/agent/code': typeof ApiAgentCodeRoute
+  '/api/agent/plan': typeof ApiAgentPlanRoute
+  '/api/agent/tests': typeof ApiAgentTestsRoute
   '/api/diagnostics/fix': typeof ApiDiagnosticsFixRoute
   '/api/github/commit': typeof ApiGithubCommitRoute
+  '/api/github/create-repo': typeof ApiGithubCreateRepoRoute
   '/api/github/pr': typeof ApiGithubPrRoute
   '/api/github/pull': typeof ApiGithubPullRoute
   '/api/github/repos': typeof ApiGithubReposRoute
@@ -124,8 +152,12 @@ export interface FileRoutesByTo {
   '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
   '/api/user-flow': typeof ApiUserFlowRoute
+  '/api/agent/code': typeof ApiAgentCodeRoute
+  '/api/agent/plan': typeof ApiAgentPlanRoute
+  '/api/agent/tests': typeof ApiAgentTestsRoute
   '/api/diagnostics/fix': typeof ApiDiagnosticsFixRoute
   '/api/github/commit': typeof ApiGithubCommitRoute
+  '/api/github/create-repo': typeof ApiGithubCreateRepoRoute
   '/api/github/pr': typeof ApiGithubPrRoute
   '/api/github/pull': typeof ApiGithubPullRoute
   '/api/github/repos': typeof ApiGithubReposRoute
@@ -142,8 +174,12 @@ export interface FileRoutesById {
   '/api/phases': typeof ApiPhasesRoute
   '/api/survey': typeof ApiSurveyRoute
   '/api/user-flow': typeof ApiUserFlowRoute
+  '/api/agent/code': typeof ApiAgentCodeRoute
+  '/api/agent/plan': typeof ApiAgentPlanRoute
+  '/api/agent/tests': typeof ApiAgentTestsRoute
   '/api/diagnostics/fix': typeof ApiDiagnosticsFixRoute
   '/api/github/commit': typeof ApiGithubCommitRoute
+  '/api/github/create-repo': typeof ApiGithubCreateRepoRoute
   '/api/github/pr': typeof ApiGithubPrRoute
   '/api/github/pull': typeof ApiGithubPullRoute
   '/api/github/repos': typeof ApiGithubReposRoute
@@ -160,8 +196,12 @@ export interface FileRouteTypes {
     | '/api/phases'
     | '/api/survey'
     | '/api/user-flow'
+    | '/api/agent/code'
+    | '/api/agent/plan'
+    | '/api/agent/tests'
     | '/api/diagnostics/fix'
     | '/api/github/commit'
+    | '/api/github/create-repo'
     | '/api/github/pr'
     | '/api/github/pull'
     | '/api/github/repos'
@@ -176,8 +216,12 @@ export interface FileRouteTypes {
     | '/api/phases'
     | '/api/survey'
     | '/api/user-flow'
+    | '/api/agent/code'
+    | '/api/agent/plan'
+    | '/api/agent/tests'
     | '/api/diagnostics/fix'
     | '/api/github/commit'
+    | '/api/github/create-repo'
     | '/api/github/pr'
     | '/api/github/pull'
     | '/api/github/repos'
@@ -193,8 +237,12 @@ export interface FileRouteTypes {
     | '/api/phases'
     | '/api/survey'
     | '/api/user-flow'
+    | '/api/agent/code'
+    | '/api/agent/plan'
+    | '/api/agent/tests'
     | '/api/diagnostics/fix'
     | '/api/github/commit'
+    | '/api/github/create-repo'
     | '/api/github/pr'
     | '/api/github/pull'
     | '/api/github/repos'
@@ -210,8 +258,12 @@ export interface RootRouteChildren {
   ApiPhasesRoute: typeof ApiPhasesRoute
   ApiSurveyRoute: typeof ApiSurveyRoute
   ApiUserFlowRoute: typeof ApiUserFlowRoute
+  ApiAgentCodeRoute: typeof ApiAgentCodeRoute
+  ApiAgentPlanRoute: typeof ApiAgentPlanRoute
+  ApiAgentTestsRoute: typeof ApiAgentTestsRoute
   ApiDiagnosticsFixRoute: typeof ApiDiagnosticsFixRoute
   ApiGithubCommitRoute: typeof ApiGithubCommitRoute
+  ApiGithubCreateRepoRoute: typeof ApiGithubCreateRepoRoute
   ApiGithubPrRoute: typeof ApiGithubPrRoute
   ApiGithubPullRoute: typeof ApiGithubPullRoute
   ApiGithubReposRoute: typeof ApiGithubReposRoute
@@ -277,6 +329,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUserFlowRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/agent/code': {
+      id: '/api/agent/code'
+      path: '/api/agent/code'
+      fullPath: '/api/agent/code'
+      preLoaderRoute: typeof ApiAgentCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/agent/plan': {
+      id: '/api/agent/plan'
+      path: '/api/agent/plan'
+      fullPath: '/api/agent/plan'
+      preLoaderRoute: typeof ApiAgentPlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/agent/tests': {
+      id: '/api/agent/tests'
+      path: '/api/agent/tests'
+      fullPath: '/api/agent/tests'
+      preLoaderRoute: typeof ApiAgentTestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/diagnostics/fix': {
       id: '/api/diagnostics/fix'
       path: '/api/diagnostics/fix'
@@ -289,6 +362,13 @@ declare module '@tanstack/react-router' {
       path: '/api/github/commit'
       fullPath: '/api/github/commit'
       preLoaderRoute: typeof ApiGithubCommitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/github/create-repo': {
+      id: '/api/github/create-repo'
+      path: '/api/github/create-repo'
+      fullPath: '/api/github/create-repo'
+      preLoaderRoute: typeof ApiGithubCreateRepoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/github/pr': {
@@ -348,8 +428,12 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPhasesRoute: ApiPhasesRoute,
   ApiSurveyRoute: ApiSurveyRoute,
   ApiUserFlowRoute: ApiUserFlowRoute,
+  ApiAgentCodeRoute: ApiAgentCodeRoute,
+  ApiAgentPlanRoute: ApiAgentPlanRoute,
+  ApiAgentTestsRoute: ApiAgentTestsRoute,
   ApiDiagnosticsFixRoute: ApiDiagnosticsFixRoute,
   ApiGithubCommitRoute: ApiGithubCommitRoute,
+  ApiGithubCreateRepoRoute: ApiGithubCreateRepoRoute,
   ApiGithubPrRoute: ApiGithubPrRoute,
   ApiGithubPullRoute: ApiGithubPullRoute,
   ApiGithubReposRoute: ApiGithubReposRoute,
