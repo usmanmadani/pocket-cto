@@ -65,15 +65,8 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
     generationConfig,
   };
 
-  // Google accepts an API key via x-goog-api-key, and an OAuth access token via
-  // Authorization: Bearer. Send whichever matches the configured credential.
-  const authHeaders: Record<string, string> = apiKey.startsWith("AIza")
-    ? { "x-goog-api-key": apiKey }
-    : { Authorization: `Bearer ${apiKey}` };
-  const projectId = process.env["GOOGLE_CLOUD_PROJECT_ID"];
-  if (projectId && !apiKey.startsWith("AIza")) {
-    authHeaders["x-goog-user-project"] = projectId;
-  }
+  const authHeaders: Record<string, string> = { "x-goog-api-key": apiKey };
+
 
   const upstream = await fetch(GOOGLE_ENDPOINT(MODEL), {
     method: "POST",
