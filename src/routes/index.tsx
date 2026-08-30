@@ -131,9 +131,9 @@ function Home() {
       summary: string;
       answers: { question: string; answer: string }[];
       files: BlueprintFile[];
-      phases?: BuildPhase[];
-      userFlow?: UserFlowData;
-      codebaseContext?: CodebaseContext;
+      phases?: BuildPhase[] | undefined;
+      userFlow?: UserFlowData | undefined;
+      codebaseContext?: CodebaseContext | undefined;
     }) => {
       const id = savedIdRef.current;
       if (user && !String(user.id).startsWith("github_")) {

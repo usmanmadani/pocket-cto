@@ -17,9 +17,9 @@ export type SavedProject = {
   createdAt: string;
   answers: { question: string; answer: string }[];
   files: BlueprintFile[];
-  phases?: BuildPhase[];
-  userFlow?: UserFlowData;
-  codebaseContext?: CodebaseContext;
+  phases?: BuildPhase[] | undefined;
+  userFlow?: UserFlowData | undefined;
+  codebaseContext?: CodebaseContext | undefined;
 };
 
 export const CANONICAL_FILES = [
@@ -83,10 +83,10 @@ export async function downloadPackage(
     idea: string;
     domain: string;
     answers: { question: string; answer: string }[];
-    phases?: BuildPhase[];
-    userFlow?: UserFlowData;
-    userFlowPng?: string;
-    codebaseContext?: CodebaseContext;
+    phases?: BuildPhase[] | undefined;
+    userFlow?: UserFlowData | undefined;
+    userFlowPng?: string | undefined;
+    codebaseContext?: CodebaseContext | undefined;
   },
 ) {
   const zip = new JSZip();
