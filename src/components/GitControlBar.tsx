@@ -157,7 +157,9 @@ export function GitControlBar({
       }, 2000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [autoSync, files.length]);
+
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 bg-[#080d1a] px-4 py-2.5 text-xs text-foreground">
