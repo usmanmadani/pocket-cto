@@ -1,7 +1,7 @@
 const GOOGLE_ENDPOINT = (model: string) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
 
-const MODEL = "gemini-flash-latest";
+const MODELS = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"];
 
 type Body = Record<string, unknown>;
 
