@@ -435,14 +435,55 @@ function Home() {
           </div>
         </header>
 
-        <section className="mx-auto max-w-3xl px-6 pt-10 pb-14 text-center">
+        {/* 3-Step Workflow Progress Bar */}
+        <div className="mx-auto max-w-2xl px-6 pt-2 pb-6">
+          <div className="flex items-center justify-between rounded-full border border-border/80 bg-background/50 p-1.5 backdrop-blur-md">
+            {[
+              { id: "idea", label: "1. Define System", icon: Sparkles },
+              { id: "survey", label: "2. Technical Survey", icon: Wand2 },
+              { id: "blueprint", label: "3. Studio & Codebase", icon: Code2 },
+            ].map((step, idx) => {
+              const Icon = step.icon;
+              const isActive = stage === step.id;
+              const isPast =
+                (stage === "survey" && step.id === "idea") ||
+                (stage === "blueprint" && step.id !== "blueprint");
+
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => {
+                    if (isPast) {
+                      if (step.id === "idea") setStage("idea");
+                      if (step.id === "survey" && survey) setStage("survey");
+                    }
+                  }}
+                  disabled={!isPast && !isActive}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-xs transition-all ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                      : isPast
+                        ? "text-teal-400 hover:bg-background/80 cursor-pointer"
+                        : "text-muted-foreground/50 cursor-default"
+                  }`}
+                >
+                  <Icon className="size-3" />
+                  <span className="hidden sm:inline">{step.label}</span>
+                  <span className="sm:hidden">{idx + 1}</span>
+                  {isPast && <Check className="size-3 text-emerald-400" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <section className="mx-auto max-w-3xl px-6 pt-4 pb-12 text-center">
           <h1 className="font-display text-4xl leading-tight font-semibold text-balance sm:text-5xl">
             From a one-line idea to a{" "}
-            <span className="text-primary">complete software blueprint</span>
+            <span className="text-primary">production-ready software system</span>
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-            An architect agent interrogates your idea, then compiles a PRD, architecture
-            diagrams, PostgreSQL schema, AI-builder prompts and a phased roadmap.
+          <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+            Pocket CTO AI designs technical architectures, interactive navigation flows, normalized database schemas, and full runnable code with instant GitHub deployment.
           </p>
 
           <div className="panel mt-8 p-4 text-left">
