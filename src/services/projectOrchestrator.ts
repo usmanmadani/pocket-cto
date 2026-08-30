@@ -51,7 +51,7 @@ export async function executeProjectDeploymentFlow(
 
     const existingEnvIdx = allFiles.findIndex((f) => f.path === ".env" || f.path === ".env.local");
     if (existingEnvIdx >= 0) {
-      allFiles[existingEnvIdx].content += `\n${envContent}`;
+      allFiles[existingEnvIdx]!.content += `\n${envContent}`;
     } else {
       allFiles.push({ path: ".env", content: envContent });
     }
