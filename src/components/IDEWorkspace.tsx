@@ -38,6 +38,8 @@ import {
 } from "@/lib/diagnostics-engine";
 import { streamPost, type BlueprintFile, type UserFlowData } from "@/lib/architect-client";
 import { downloadPackage } from "@/lib/blueprint-store";
+import { AutonomousBuilderModal } from "@/components/AutonomousBuilderModal";
+import { NewRepoModal } from "@/components/NewRepoModal";
 
 interface IDEWorkspaceProps {
   files: BlueprintFile[];
@@ -64,6 +66,8 @@ export function IDEWorkspace({
   const [searchQuery, setSearchQuery] = useState("");
   const [copied, setCopied] = useState(false);
   const [prModalOpen, setPrModalOpen] = useState(false);
+  const [builderModalOpen, setBuilderModalOpen] = useState(false);
+  const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
   const [autoSync, setAutoSync] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(true);
   const [fixingIssueId, setFixingIssueId] = useState<string | null>(null);
@@ -278,28 +282,51 @@ export function IDEWorkspace({
             </div>
 
             {/* Quick Actions */}
-            {activeTab === "editor" && (
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search className="size-3.5 absolute left-2.5 top-2 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Find in file..."
-                    className="h-7 w-36 pl-8 font-mono text-[11px] bg-background/50 border-border/70"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyCode}
-                  className="h-7 gap-1.5 font-mono text-xs"
-                >
-                  {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
-                  {copied ? "Copied" : "Copy"}
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => setBuilderModalOpen(true)}
+                className="h-7 gap-1.5 bg-gradient-to-r from-primary to-teal-500 font-mono text-xs text-primary-foreground hover:opacity-95 shadow-sm"
+                title="Iterate software architecture, approve implementation plan, and execute code autonomously"
+              >
+                <Sparkles className="size-3.5" />
+                Iterate with AI
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setNewRepoModalOpen(true)}
+                className="h-7 gap-1.5 font-mono text-xs border-border/80 text-foreground hover:bg-background/80"
+                title="Create a new GitHub repository and push current codebase"
+              >
+                <FolderGit2 className="size-3 text-teal-400" />
+                New Repo
+              </Button>
+
+              {activeTab === "editor" && (
+                <>
+                  <div className="relative">
+                    <Search className="size-3.5 absolute left-2.5 top-2 text-muted-foreground" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Find in file..."
+                      className="h-7 w-36 pl-8 font-mono text-[11px] bg-background/50 border-border/70"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyCode}
+                    className="h-7 gap-1.5 font-mono text-xs"
+                  >
+                    {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Tab Views */}
@@ -475,6 +502,30 @@ export function IDEWorkspace({
         onOpenChange={setPrModalOpen}
         repoFullName={repoFullName}
         defaultTitle={`feat(spec): automated Pocket CTO blueprint specifications for ${ideaTitle.slice(0, 30)}`}
+      />
+
+      {/* Autonomous Builder Modal */}
+      <AutonomousBuilderModal
+        open={builderModalOpen}
+        onOpenChange={setBuilderModalOpen}
+        files={files}
+        onFilesUpdated={(updatedFiles) => {
+          setFiles(updatedFiles);
+          if (onUpdateFile && updatedFiles.length > 0) {
+            updatedFiles.forEach((f) => onUpdateFile(f.name, f.content));
+          }
+        }}
+        repoFullName={repoFullName}
+        ideaTitle={ideaTitle}
+        domain={domain}
+      />
+
+      {/* Create New GitHub Repo Modal */}
+      <NewRepoModal
+        open={newRepoModalOpen}
+        onOpenChange={setNewRepoModalOpen}
+        files={files}
+        defaultName={ideaTitle.slice(0, 24)}
       />
     </div>
   );

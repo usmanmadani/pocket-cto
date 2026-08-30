@@ -25,6 +25,8 @@ import { ThoughtStream } from "@/components/ThoughtStream";
 import { GitHubSyncModal } from "@/components/GitHubSyncModal";
 import { UserFlowCanvas } from "@/components/UserFlowCanvas";
 import { IDEWorkspace } from "@/components/IDEWorkspace";
+import { AutonomousBuilderModal } from "@/components/AutonomousBuilderModal";
+import { NewRepoModal } from "@/components/NewRepoModal";
 import {
   parseFiles,
   parsePhases,
@@ -91,6 +93,8 @@ function Home() {
   const [doneP, setDoneP] = useState<Record<number, boolean>>({});
   const [codebaseContext, setCodebaseContext] = useState<CodebaseContext | null>(null);
   const [githubModalOpen, setGithubModalOpen] = useState(false);
+  const [builderModalOpen, setBuilderModalOpen] = useState(false);
+  const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
   const savedIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { user, signOut } = useAuth();
@@ -586,49 +590,71 @@ function Home() {
 
         {stage === "blueprint" && (
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setView("files")}
-                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
-                  view === "files"
-                    ? "border-accent bg-accent/10 text-accent"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <FileText className="size-3.5" /> Blueprint files
-              </button>
-              <button
-                onClick={() => (userFlow ? setView("userflow") : runUserFlow())}
-                disabled={!files.length || busy || userFlowBusy}
-                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
-                  view === "userflow"
-                    ? "border-accent bg-accent/10 text-accent"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {userFlowBusy ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <GitBranch className="size-3.5" />
-                )}
-                User Flow Diagram{userFlow ? " (Ready)" : ""}
-              </button>
-              <button
-                onClick={() => (phases.length ? setView("prompts") : runPhases())}
-                disabled={!files.length || busy || phaseBusy}
-                className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
-                  view === "prompts"
-                    ? "border-accent bg-accent/10 text-accent"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {phaseBusy ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <ListOrdered className="size-3.5" />
-                )}
-                Build prompts{phases.length ? ` (${phases.length})` : ""}
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setView("files")}
+                  className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors ${
+                    view === "files"
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <FileText className="size-3.5" /> Blueprint files
+                </button>
+                <button
+                  onClick={() => (userFlow ? setView("userflow") : runUserFlow())}
+                  disabled={!files.length || busy || userFlowBusy}
+                  className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
+                    view === "userflow"
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {userFlowBusy ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <GitBranch className="size-3.5" />
+                  )}
+                  User Flow Diagram{userFlow ? " (Ready)" : ""}
+                </button>
+                <button
+                  onClick={() => (phases.length ? setView("prompts") : runPhases())}
+                  disabled={!files.length || busy || phaseBusy}
+                  className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[12px] transition-colors disabled:opacity-50 ${
+                    view === "prompts"
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {phaseBusy ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <ListOrdered className="size-3.5" />
+                  )}
+                  Build prompts{phases.length ? ` (${phases.length})` : ""}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setBuilderModalOpen(true)}
+                  className="gap-2 bg-gradient-to-r from-primary to-teal-500 font-mono text-xs text-primary-foreground shadow-md hover:opacity-95"
+                >
+                  <Sparkles className="size-3.5" />
+                  Build Full Software with AI
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNewRepoModalOpen(true)}
+                  className="gap-2 font-mono text-xs border-border text-foreground hover:bg-background/80"
+                >
+                  <FolderGit2 className="size-3.5 text-teal-400" />
+                  Create GitHub Repo
+                </Button>
+              </div>
             </div>
 
             {view === "files" && (
@@ -791,6 +817,29 @@ function Home() {
         onRepoSynced={setCodebaseContext}
         activeContext={codebaseContext}
         onClearContext={() => setCodebaseContext(null)}
+      />
+
+      <AutonomousBuilderModal
+        open={builderModalOpen}
+        onOpenChange={setBuilderModalOpen}
+        files={files}
+        onFilesUpdated={(updatedFiles) => {
+          setRaw(
+            updatedFiles
+              .map((f) => `===FILE: ${f.name}===\n${f.content}\n`)
+              .join("\n"),
+          );
+        }}
+        repoFullName={codebaseContext?.repoName}
+        ideaTitle={idea}
+        domain={survey?.domain}
+      />
+
+      <NewRepoModal
+        open={newRepoModalOpen}
+        onOpenChange={setNewRepoModalOpen}
+        files={files}
+        defaultName={idea.slice(0, 24)}
       />
     </main>
   );
