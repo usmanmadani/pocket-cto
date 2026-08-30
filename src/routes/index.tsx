@@ -8,7 +8,9 @@ import {
   FileText,
   FolderGit2,
   Github,
+  GitBranch,
   History,
+
   ListOrdered,
   Loader2,
   LogIn,
