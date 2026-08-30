@@ -67,23 +67,32 @@ export async function streamArchitect(opts: StreamOptions): Promise<Response> {
 
   const authHeaders: Record<string, string> = { "x-goog-api-key": apiKey };
 
+  // Gemini returns 503 when a model is momentarily saturated: fall back across
+  // models and retry with a short backoff before giving up.
+  let upstream: Response | undefined;
+  for (let attempt = 0; attempt < MODELS.length * 2; attempt++) {
+    const model = MODELS[attempt % MODELS.length]!;
+    upstream = await fetch(GOOGLE_ENDPOINT(model), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders },
+      body: JSON.stringify(body),
+      signal: opts.signal ?? null,
+    });
+    if (upstream.ok && upstream.body) break;
+    if (upstream.status !== 503 && upstream.status !== 429) break;
+    await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+  }
 
-  const upstream = await fetch(GOOGLE_ENDPOINT(MODEL), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders },
-    body: JSON.stringify(body),
-    signal: opts.signal ?? null,
-  });
-
-  if (!upstream.ok || !upstream.body) {
-    const message = await upstream.text().catch(() => "");
-    const status = upstream.status;
+  if (!upstream || !upstream.ok || !upstream.body) {
+    const message = await upstream?.text().catch(() => "");
+    const status = upstream?.status ?? 500;
     const friendly =
       status === 401 || status === 403
         ? "Google AI rejected the credentials. Check the API key or its project permissions."
-        : status === 429
-          ? "Google AI is rate limited right now. Please retry in a moment."
+        : status === 429 || status === 503
+          ? "Google AI is busy right now. Please retry in a moment."
           : message || `AI request failed (${status}).`;
+
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(encodeEvent({ type: "error", value: friendly }));
