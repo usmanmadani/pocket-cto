@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Sparkles,
   Play,
@@ -25,6 +25,11 @@ import {
   FileText,
   Send,
   Zap,
+  Mic,
+  MicOff,
+  Radio,
+  HelpCircle,
+  Lightbulb,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,68 +63,144 @@ export function LovableStudioBuilder({
   onUpdateFile,
   userFlow,
   ideaTitle,
-  domain = "SaaS Platform",
+  domain,
   repoFullName,
   codebaseContext,
 }: LovableStudioBuilderProps) {
   const [files, setFiles] = useState<BlueprintFile[]>(initialFiles);
-  const [activeTab, setActiveTab] = useState<"preview" | "code" | "userflow" | "database">("preview");
+  const [originalFiles, setOriginalFiles] = useState<BlueprintFile[]>(initialFiles);
+  const [codeViewMode, setCodeViewMode] = useState<"editor" | "diff">("editor");
   const [activeFileIndex, setActiveFileIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<"preview" | "code" | "userflow" | "database">("code");
   const [promptInput, setPromptInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [thoughts, setThoughts] = useState("");
+  const [copiedMigration, setCopiedMigration] = useState(false);
+  const [exportRulesModalOpen, setExportRulesModalOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  // Modals state
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
+  const [prModalOpen, setPrModalOpen] = useState(false);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+
+  // Integrations state
+  const [integrations, setIntegrations] = useState<ProjectIntegrations>(getStoredIntegrations());
+
+  // Vercel deployment preview URL
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
+
+  // Studio Chat History with persistence
   const [chatHistory, setChatHistory] = useState<StudioChatMessage[]>(() => {
-    const saved = getStudioChat(ideaTitle);
-    if (saved && saved.length > 0) return saved;
+    const stored = getStudioChat(ideaTitle);
+    if (stored && stored.length > 0) return stored;
+
     return [
       {
-        id: "init",
+        id: "init-1",
         role: "assistant",
-        text: repoFullName
-          ? `I've loaded **${repoFullName}** (${files.length} files). Tell me what changes, new pages, or bug fixes you'd like me to build!`
-          : `I've initialized the architecture and workspace for **${ideaTitle}**. Tell me what you'd like to build next!`,
+        text: `👋 **Welcome to Pocket CTO Studio!** I have loaded your workspace for **"${ideaTitle}"**.\n\nI have full autonomous read/write access to all your project files and database schemas. You can ask me to modify code, build new pages, integrate payment gateways, or refactor components. What should we build next?`,
       },
     ];
   });
 
+  // Sync initialFiles if prop updates
   useEffect(() => {
     setFiles(initialFiles);
   }, [initialFiles]);
 
-  // Automatically record and persist every studio chat message to database/storage
+  // Persist chat whenever updated
   useEffect(() => {
-    if (chatHistory && chatHistory.length > 0 && ideaTitle) {
+    if (chatHistory.length > 0) {
       saveStudioChat(ideaTitle, chatHistory);
     }
   }, [chatHistory, ideaTitle]);
 
-  const [prModalOpen, setPrModalOpen] = useState(false);
-  const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
-  const [syncModalOpen, setSyncModalOpen] = useState(false);
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
-  const [exportRulesModalOpen, setExportRulesModalOpen] = useState(false);
-  const [codeViewMode, setCodeViewMode] = useState<"editor" | "diff">("editor");
-  const [originalFiles, setOriginalFiles] = useState<BlueprintFile[]>(initialFiles);
-  const [integrations, setIntegrations] = useState<ProjectIntegrations>(getStoredIntegrations());
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [autoSync, setAutoSync] = useState(false);
-  const [copiedMigration, setCopiedMigration] = useState(false);
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatHistory, thoughts, busy]);
 
-  const activeFile = files[Math.min(activeFileIndex, Math.max(files.length - 1, 0))];
-  const originalFile = originalFiles.find((f) => f.name === activeFile?.name);
+  const activeFile = files[activeFileIndex] || files[0];
+  const originalFile = originalFiles.find((f) => f.name === activeFile?.name) || activeFile;
 
-  // Extract SQL migrations and schemas
+  // Extract SQL migration files
   const sqlFiles = useMemo(() => {
-    return files.filter(
-      (f) =>
-        f.name.toLowerCase().endsWith(".sql") ||
-        f.name.toLowerCase().includes("schema") ||
-        f.name.toLowerCase().includes("migration"),
-    );
+    return files.filter((f) => f.name.toLowerCase().endsWith(".sql"));
   }, [files]);
 
-  const latestMigration = sqlFiles[0]?.content || "";
+  const latestMigration = sqlFiles.length > 0 ? sqlFiles[sqlFiles.length - 1]?.content : "";
+
+  // Speech-to-text voice recognition handler
+  const toggleVoiceRecording = () => {
+    if (typeof window === "undefined") return;
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+      return;
+    }
+
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        if (transcript) {
+          setPromptInput((prev) => (prev ? `${prev} ${transcript.trim()}` : transcript.trim()));
+        }
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.warn("Speech recognition error:", err);
+      setIsListening(false);
+    }
+  };
+
+  const copyMigrationSql = (sqlText: string) => {
+    if (!sqlText) return;
+    navigator.clipboard.writeText(sqlText);
+    setCopiedMigration(true);
+    setTimeout(() => setCopiedMigration(false), 2500);
+  };
 
   const handleDeployToVercel = async () => {
     setIsDeploying(true);
@@ -128,22 +209,20 @@ export function LovableStudioBuilder({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectName: ideaTitle,
-          generatedFiles: files.map((f) => ({ path: f.name, content: f.content })),
-          sqlMigrations: sqlFiles.map((s) => s.content),
-          supabaseCredentials: integrations.supabaseUrl
+          projectName: ideaTitle.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 32),
+          files,
+          supabaseConfig: integrations.supabaseUrl
             ? {
-                supabaseUrl: integrations.supabaseUrl,
+                url: integrations.supabaseUrl,
                 anonKey: integrations.supabaseAnonKey,
               }
             : undefined,
-          vercelToken: integrations.vercelToken,
+          customVercelToken: integrations.vercelToken || undefined,
         }),
       });
 
       const data = await res.json();
-      if (data.error) {
-        setSettingsModalOpen(true);
+      if (!res.ok || data.error) {
         setChatHistory((prev) => [
           ...prev,
           {
@@ -185,90 +264,67 @@ export function LovableStudioBuilder({
     if (onUpdateFile) onUpdateFile(name, content);
   };
 
-  // Submit AI Prompt (Lovable / Bolt conversational build loop)
-  const handleSendPrompt = async (e?: React.FormEvent) => {
+  // Submit AI Prompt (Autonomous Conversational Coding Agent)
+  const handleSendPrompt = async (e?: React.FormEvent, overrideText?: string) => {
     if (e) e.preventDefault();
-    if (!promptInput.trim() || busy) return;
+    const userMessage = (overrideText ?? promptInput).trim();
+    if (!userMessage || busy) return;
 
-    const userMessage = promptInput.trim();
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+      setIsListening(false);
+    }
+
     setPromptInput("");
     setBusy(true);
     setThoughts("");
 
     const newMsgId = Date.now().toString();
-    setChatHistory((prev) => [
-      ...prev,
+    const updatedHistory: StudioChatMessage[] = [
+      ...chatHistory,
       { id: `user-${newMsgId}`, role: "user", text: userMessage },
-    ]);
+    ];
+    setChatHistory(updatedHistory);
 
     try {
-      // 1. Generate Implementation Plan
-      let planJson = "";
+      let assistantResponse = "";
       await streamPost(
-        "/api/agent/plan",
+        "/api/agent/chat",
         {
-          iterationPrompt: userMessage,
-          currentFiles: files,
-          userFlow,
+          message: userMessage,
+          chatHistory: updatedHistory.map((m) => ({ role: m.role, text: m.text })),
+          files,
+          ideaTitle,
+          domain,
           codebaseContext: repoFullName ? { repoName: repoFullName } : undefined,
-          blueprintSummary: `${ideaTitle} (${domain})`,
+          userFlow,
         },
         (event) => {
           if (event.type === "thought") setThoughts((t) => t + event.value);
-          else if (event.type === "text") planJson += event.value;
+          else if (event.type === "text") assistantResponse += event.value;
         },
       );
 
-      let planTitle = "Feature Update";
-      let planSummary = "Applied requested code updates across the codebase";
-      let planTasks = ["Updated components", "Validated syntax and types"];
+      // Extract modified or newly generated files from the stream
+      const generated = parseFiles(assistantResponse);
+      const changedFileNames: string[] = [];
 
-      try {
-        const cleanPlan = planJson
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/\s*```$/i, "")
-          .trim();
-        const p = JSON.parse(cleanPlan);
-        if (p?.title) planTitle = String(p.title);
-        if (p?.summary) planSummary = String(p.summary);
-        if (Array.isArray(p?.tasks) && p.tasks.length > 0) {
-          planTasks = p.tasks.map(String);
-        }
-      } catch {
-        /* fallback to clean default */
-      }
-
-      const parsedPlan = {
-        title: planTitle,
-        summary: planSummary,
-        tasks: planTasks,
-        affected_files: [] as { path: string; action: string; purpose: string }[],
-      };
-
-      // 2. Execute Code Generation
-      let codeStream = "";
-      await streamPost(
-        "/api/agent/code",
-        {
-          approvedPlan: parsedPlan,
-          iterationPrompt: userMessage,
-          existingFiles: files,
-          userFlow,
-          codebaseContext: repoFullName ? { repoName: repoFullName } : undefined,
-        },
-        (event) => {
-          if (event.type === "thought") setThoughts((t) => t + event.value);
-          else if (event.type === "text") codeStream += event.value;
-        },
-      );
-
-      const generated = parseFiles(codeStream);
       if (generated.length > 0) {
+        // Save current files as baseline for Git diff view
+        setOriginalFiles([...files]);
+
         const fileMap = new Map<string, string>();
         files.forEach((f) => fileMap.set(f.name, f.content));
-        generated.forEach((g) => fileMap.set(g.name, g.content));
+        generated.forEach((g) => {
+          fileMap.set(g.name, g.content);
+          changedFileNames.push(g.name);
+        });
 
-        // Generate incremental SQL migration if schema changed
+        // Check for incremental SQL migration
         const newSql = generated.find((g) => g.name.toLowerCase().endsWith(".sql"));
         let migrationSql: string | undefined;
 
@@ -292,35 +348,45 @@ export function LovableStudioBuilder({
           merged.forEach((f) => onUpdateFile(f.name, f.content));
         }
 
+        // Auto-select the first modified file
+        if (changedFileNames.length > 0) {
+          const idx = merged.findIndex((f) => f.name === changedFileNames[0]);
+          if (idx !== -1) setActiveFileIndex(idx);
+        }
+
+        // Clean conversational text (strip file delimiters for clean chat bubble)
+        const cleanExplanation = assistantResponse
+          .replace(/===FILE:\s*[\s\S]*?(?====FILE:|$)/g, "")
+          .trim();
+
         setChatHistory((prev) => [
           ...prev,
           {
             id: `assistant-${newMsgId}`,
             role: "assistant",
-            text: `Successfully built: **${planTitle}**\n${planSummary}`,
-            tasks: planTasks,
-            filesChanged: generated.map((g) => g.name),
+            text: cleanExplanation || `✅ Successfully updated ${changedFileNames.length} file(s) across your project.`,
+            filesChanged: changedFileNames,
             migrationSql,
           },
         ]);
       } else {
+        // Conversational response without code changes
         setChatHistory((prev) => [
           ...prev,
           {
             id: `assistant-${newMsgId}`,
             role: "assistant",
-            text: `⚠️ Agent analysis completed: ${planSummary}`,
-            tasks: planTasks,
+            text: assistantResponse || "I have analyzed your request and workspace.",
           },
         ]);
       }
-    } catch (err) {
+    } catch (err: any) {
       setChatHistory((prev) => [
         ...prev,
         {
-          id: `assistant-err-${newMsgId}`,
+          id: `assistant-${newMsgId}`,
           role: "assistant",
-          text: `⚠️ Encountered an issue while building: ${String(err)}`,
+          text: `⚠️ Request notice: ${err?.message || "Generation completed."}`,
         },
       ]);
     } finally {
@@ -328,215 +394,171 @@ export function LovableStudioBuilder({
     }
   };
 
-  const copyMigrationSql = (sql: string) => {
-    void navigator.clipboard.writeText(sql);
-    setCopiedMigration(true);
-    setTimeout(() => setCopiedMigration(false), 2000);
+  // Helper to parse interactive decision options from assistant text
+  const parseOptionsFromText = (text: string) => {
+    const options: Array<{ title: string; desc: string }> = [];
+    const regex = /\[OPTION:\s*([^\|\]]+)(?:\|\s*([^\]]+))?\]/gi;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      options.push({
+        title: match[1]?.trim() || "Option",
+        desc: match[2]?.trim() || "",
+      });
+    }
+    return options;
   };
 
   return (
-    <div className="flex h-[88vh] min-h-[680px] flex-col rounded-2xl border border-border/80 bg-[#070b14] overflow-hidden shadow-2xl">
-      {/* Top Lovable-style Studio Header */}
-      <header className="flex flex-wrap items-center justify-between border-b border-border/80 bg-[#080d1a] px-4 py-2.5 text-xs text-foreground">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 font-display font-semibold text-foreground">
-            <span className="flex size-6 items-center justify-center rounded-lg bg-teal-500 text-slate-950 font-bold text-xs shadow-md shadow-teal-500/20">
-              ⚡
-            </span>
-            <span className="truncate max-w-[200px]">{ideaTitle}</span>
-          </div>
+    <div className="flex flex-col h-[calc(100vh-4rem)] max-h-[920px] rounded-2xl border border-border/80 bg-[#070b14] overflow-hidden shadow-2xl">
+      {/* Top Studio Control Bar */}
+      <GitControlBar
+        files={files}
+        ideaTitle={ideaTitle}
+        domain={domain}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenSettings={() => setSettingsModalOpen(true)}
+        onOpenNewRepo={() => setNewRepoModalOpen(true)}
+        onOpenPR={() => setPrModalOpen(true)}
+        onOpenSync={() => setSyncModalOpen(true)}
+        onOpenExportRules={() => setExportRulesModalOpen(true)}
+        onDeployToVercel={handleDeployToVercel}
+        isDeploying={isDeploying}
+        repoFullName={repoFullName}
+        supabaseConfigured={Boolean(integrations.supabaseUrl)}
+      />
 
-          <div className="hidden sm:flex items-center gap-1.5 rounded-md border border-border/60 bg-background/50 px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-            <FolderGit2 className="size-3 text-teal-400" />
-            {repoFullName ? (
-              <span className="text-foreground">{repoFullName}</span>
-            ) : (
-              <span>No Git linked</span>
-            )}
-          </div>
-        </div>
-
-        {/* View Switcher Tabs (Bolt / Lovable style) */}
-        <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-background/60 p-0.5">
-          <button
-            onClick={() => setActiveTab("preview")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-mono text-xs transition-all ${
-              activeTab === "preview"
-                ? "bg-primary/20 text-primary font-semibold shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Monitor className="size-3.5" /> Preview
-          </button>
-
-          <button
-            onClick={() => setActiveTab("code")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-mono text-xs transition-all ${
-              activeTab === "code"
-                ? "bg-primary/20 text-primary font-semibold shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Code2 className="size-3.5" /> Code ({files.length})
-          </button>
-
-          {userFlow && (
-            <button
-              onClick={() => setActiveTab("userflow")}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-mono text-xs transition-all ${
-                activeTab === "userflow"
-                  ? "bg-purple-500/20 text-purple-400 font-semibold shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <GitBranch className="size-3.5" /> User Flow
-            </button>
-          )}
-
-          <button
-            onClick={() => setActiveTab("database")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-mono text-xs transition-all ${
-              activeTab === "database"
-                ? "bg-cyan-500/20 text-cyan-400 font-semibold shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Database className="size-3.5" /> Database & Migrations
-          </button>
-        </div>
-
-        {/* Right Top Actions */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setExportRulesModalOpen(true)}
-            className="h-7 gap-1.5 font-mono text-xs border-purple-500/40 text-purple-300 hover:bg-purple-500/10"
-            title="Export .cursorrules and AI Prompt Packs for Cursor, Windsurf, Bolt, and v0"
-          >
-            <Sparkles className="size-3 text-purple-400" />
-            Export Rules & Prompts
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSettingsModalOpen(true)}
-            className="h-7 gap-1.5 font-mono text-xs border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
-            title="Configure your Supabase Database credentials (BYOK) and Vercel Token"
-          >
-            <ShieldCheck className="size-3 text-cyan-400" />
-            {integrations.supabaseUrl ? "Supabase Connected" : "Connect Supabase / Vercel"}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setNewRepoModalOpen(true)}
-            className="h-7 gap-1.5 font-mono text-xs border-border/80 text-foreground hover:bg-background/80"
-          >
-            <FolderGit2 className="size-3 text-teal-400" />
-            {repoFullName ? "Export to New Repo" : "Create GitHub Repo"}
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() =>
-              downloadPackage(files, ideaTitle, {
-                idea: ideaTitle,
-                domain,
-                answers: [],
-                userFlow: userFlow || undefined,
-              })
-            }
-            className="h-7 gap-1.5 bg-primary font-mono text-xs text-primary-foreground shadow-md hover:opacity-95"
-          >
-            <Download className="size-3" /> Export .zip
-          </Button>
-        </div>
-      </header>
-
-      {/* Main Split Studio Area: Left Chat/Agent + Right Interactive Canvas */}
-      <div className="grid flex-1 grid-cols-12 overflow-hidden">
-        {/* Left Side: Lovable-style AI Chat & Task Stream */}
-        <aside className="col-span-12 md:col-span-4 border-r border-border/80 bg-[#060913] flex flex-col justify-between overflow-hidden">
-          {/* Chat / Thought Stream Logs */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-border/50">
-              <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Sparkles className="size-3 text-primary" /> Pocket CTO Agent
+      {/* Main Studio Body: 2-Column Split */}
+      <div className="flex-1 grid grid-cols-12 overflow-hidden">
+        {/* Left Side: Dynamic Conversational AI Engineer Panel */}
+        <aside className="col-span-12 md:col-span-4 border-r border-border/80 bg-[#060913] flex flex-col overflow-hidden">
+          {/* Panel Header */}
+          <div className="p-3.5 border-b border-border/80 bg-[#080d1a] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-teal-500 text-slate-950 font-bold text-xs shadow-md">
+                ⚡
               </span>
-              <span className="font-mono text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                ● Live Agent
-              </span>
+              <div>
+                <h3 className="font-display text-xs font-bold text-foreground flex items-center gap-1.5">
+                  Pocket CTO Agent
+                  <span className="flex size-2 rounded-full bg-emerald-400 animate-pulse" />
+                </h3>
+                <p className="font-mono text-[10px] text-muted-foreground">
+                  Autonomous Codebase Modifications & Full History
+                </p>
+              </div>
             </div>
 
-            {busy && <ThoughtStream text={thoughts} active={busy} />}
-
-            {/* Message Feed */}
-            {chatHistory.map((msg) => (
-              <div
-                key={msg.id}
-                className={`rounded-xl p-3.5 text-xs leading-relaxed transition-all ${
-                  msg.role === "user"
-                    ? "bg-primary/15 border border-primary/30 text-foreground ml-4"
-                    : "bg-background/60 border border-border/70 text-slate-300 mr-2"
-                }`}
-              >
-                <div className="font-mono text-[10px] font-bold text-muted-foreground uppercase mb-1">
-                  {msg.role === "user" ? "You" : "Pocket CTO AI"}
-                </div>
-                <div className="whitespace-pre-wrap">{msg.text}</div>
-
-                {/* Tasks completed */}
-                {msg.tasks && msg.tasks.length > 0 && (
-                  <div className="mt-2.5 pt-2 border-t border-border/50 space-y-1">
-                    <div className="font-mono text-[10px] font-semibold text-primary uppercase">
-                      Executed Steps:
-                    </div>
-                    {msg.tasks.map((task, i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                        <CheckCircle2 className="size-3 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{task}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Files Changed */}
-                {msg.filesChanged && msg.filesChanged.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {msg.filesChanged.map((f) => (
-                      <span
-                        key={f}
-                        className="px-1.5 py-0.5 rounded bg-slate-900 border border-border/50 font-mono text-[10px] text-teal-400"
-                      >
-                        {f}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Migration notification pill */}
-                {msg.migrationSql && (
-                  <div className="mt-2 p-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 font-mono text-[11px] text-cyan-300">
-                      <Database className="size-3" /> Incremental SQL Migration Ready
-                    </div>
-                    <button
-                      onClick={() => copyMigrationSql(msg.migrationSql!)}
-                      className="text-[10px] font-mono text-cyan-400 hover:underline flex items-center gap-1"
-                    >
-                      {copiedMigration ? <Check className="size-3" /> : <Copy className="size-3" />}
-                      {copiedMigration ? "Copied" : "Copy SQL"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+            {repoFullName && (
+              <span className="font-mono text-[10px] text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/30 truncate max-w-[130px]">
+                {repoFullName}
+              </span>
+            )}
           </div>
 
-          {/* Bottom Chat Prompt Box */}
+          {/* Thought stream indicator */}
+          {busy && <ThoughtStream text={thoughts} active={busy} />}
+
+          {/* Chat Messages Log */}
+          <div ref={chatScrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+            {chatHistory.map((msg) => {
+              const options = msg.role === "assistant" ? parseOptionsFromText(msg.text) : [];
+              const cleanText = msg.text.replace(/\[OPTION:\s*[^\]]+\]/gi, "").trim();
+
+              return (
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${
+                    msg.role === "user" ? "items-end" : "items-start"
+                  }`}
+                >
+                  <div
+                    className={`max-w-[92%] rounded-2xl p-3.5 text-xs leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground font-medium rounded-tr-none shadow-md"
+                        : "bg-[#0c1224] border border-border/80 text-foreground font-normal rounded-tl-none shadow-lg"
+                    }`}
+                  >
+                    <div className="whitespace-pre-wrap font-sans">{cleanText}</div>
+
+                    {/* Interactive Decision Options (Option A vs Option B) */}
+                    {options.length > 0 && (
+                      <div className="mt-3 pt-2.5 border-t border-border/60 space-y-2">
+                        <span className="font-mono text-[10px] font-bold text-teal-400 uppercase tracking-wider flex items-center gap-1">
+                          <Lightbulb className="size-3" /> Recommended Architectural Choices:
+                        </span>
+                        <div className="flex flex-col gap-1.5">
+                          {options.map((opt, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => handleSendPrompt(undefined, `I choose: ${opt.title}. Please implement this approach across the codebase.`)}
+                              disabled={busy}
+                              className="text-left p-2 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 transition-all font-mono text-[11px] text-primary group"
+                            >
+                              <div className="font-bold flex items-center justify-between">
+                                <span>👉 {opt.title}</span>
+                                <ArrowRight className="size-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                              {opt.desc && (
+                                <p className="text-[10px] text-muted-foreground font-sans mt-0.5">
+                                  {opt.desc}
+                                </p>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Files Changed Badge */}
+                    {msg.filesChanged && msg.filesChanged.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-border/60">
+                        <span className="font-mono text-[10px] text-muted-foreground block mb-1">
+                          Modified / Created Files:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {msg.filesChanged.map((f) => (
+                            <button
+                              key={f}
+                              onClick={() => {
+                                const idx = files.findIndex((file) => file.name === f);
+                                if (idx !== -1) {
+                                  setActiveFileIndex(idx);
+                                  setActiveTab("code");
+                                }
+                              }}
+                              className="px-2 py-0.5 rounded-md bg-slate-900 border border-teal-500/40 font-mono text-[10px] text-teal-300 hover:border-teal-400 hover:bg-teal-500/10 transition-all flex items-center gap-1"
+                            >
+                              <FileCode2 className="size-2.5 text-teal-400" /> {f}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Incremental SQL Migration Pill */}
+                    {msg.migrationSql && (
+                      <div className="mt-2 p-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-cyan-300">
+                          <Database className="size-3" /> Incremental SQL Migration Ready
+                        </div>
+                        <button
+                          onClick={() => copyMigrationSql(msg.migrationSql!)}
+                          className="text-[10px] font-mono text-cyan-400 hover:underline flex items-center gap-1"
+                        >
+                          {copiedMigration ? <Check className="size-3" /> : <Copy className="size-3" />}
+                          {copiedMigration ? "Copied" : "Copy SQL"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Bottom Chat Prompt & Voice Box */}
           <div className="p-3 border-t border-border/80 bg-[#070b14] space-y-2.5">
             {/* Quick 1-Click AI Recommendation Chips */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
@@ -560,22 +582,58 @@ export function LovableStudioBuilder({
               ))}
             </div>
 
-            <form onSubmit={handleSendPrompt} className="relative flex items-center">
+            {/* Speech recording banner */}
+            {isListening && (
+              <div className="flex items-center justify-between px-3 py-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-300 font-mono text-xs animate-pulse">
+                <span className="flex items-center gap-2">
+                  <Radio className="size-3.5 text-rose-400 animate-spin" /> Listening... Speak now to transcribe
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleVoiceRecording}
+                  className="text-[10px] font-bold uppercase underline"
+                >
+                  Stop Mic
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={(e) => handleSendPrompt(e)} className="relative flex items-center gap-1.5">
               <Input
                 value={promptInput}
                 onChange={(e) => setPromptInput(e.target.value)}
                 placeholder="Ask Pocket CTO to build, add screens, or change code..."
                 disabled={busy}
-                className="pr-10 h-10 font-mono text-xs bg-background/60 border-border/80 text-foreground"
+                className="pr-20 h-10 font-mono text-xs bg-background/60 border-border/80 text-foreground"
               />
-              <Button
-                type="submit"
-                size="icon"
-                disabled={busy || !promptInput.trim()}
-                className="absolute right-1 size-8 bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
-              >
-                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
-              </Button>
+
+              <div className="absolute right-1 flex items-center gap-1">
+                {/* Voice speech-to-text mic button */}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={toggleVoiceRecording}
+                  title={isListening ? "Stop voice recording" : "Start voice speech-to-text"}
+                  className={`size-8 transition-colors ${
+                    isListening
+                      ? "text-rose-400 bg-rose-500/20 hover:bg-rose-500/30"
+                      : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+                  }`}
+                >
+                  {isListening ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+                </Button>
+
+                {/* Submit button */}
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={busy || !promptInput.trim()}
+                  className="size-8 bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+                >
+                  {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+                </Button>
+              </div>
             </form>
           </div>
         </aside>
