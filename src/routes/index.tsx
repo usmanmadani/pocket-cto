@@ -204,6 +204,44 @@ function Home() {
     setBusy(false);
   }, [idea, error, codebaseContext]);
 
+  const openDirectlyInStudio = useCallback(() => {
+    if (!raw && codebaseContext) {
+      const initialDoc = [
+        `===FILE: README.md===`,
+        `# ${codebaseContext.repoName}`,
+        ``,
+        `Connected to existing GitHub repository **${codebaseContext.repoName}** (${codebaseContext.defaultBranch || "main"}).`,
+        `Ingested ${codebaseContext.keyFiles?.length || 0} architecture and schema files.`,
+        ``,
+        `===FILE: SYSTEM_ARCHITECTURE.md===`,
+        `# Architecture & Codebase Map: ${codebaseContext.repoName}`,
+        ``,
+        `## Existing Schemas & Models`,
+        ...(codebaseContext.schemaFiles?.map((f) => `- \`${f.path}\``) ?? ["- Standard project files"]),
+        ``,
+      ].join("\n");
+      setRaw(initialDoc);
+    } else if (!raw) {
+      const initialDoc = [
+        `===FILE: README.md===`,
+        `# ${idea.trim() || "My Application"}`,
+        ``,
+        `Autonomous software project managed by Pocket CTO AI.`,
+        ``,
+        `===FILE: SYSTEM_ARCHITECTURE.md===`,
+        `# System Architecture`,
+        ``,
+        `## Core Tech Stack`,
+        `- Frontend: React, Tailwind CSS, TanStack Router`,
+        `- Backend / Database: PostgreSQL, Supabase RLS, Edge APIs`,
+        ``,
+      ].join("\n");
+      setRaw(initialDoc);
+    }
+    setStage("blueprint");
+    setView("studio");
+  }, [raw, codebaseContext, idea]);
+
   const runUserFlow = useCallback(async () => {
     if (!survey) return;
     const ctrl = new AbortController();
@@ -455,18 +493,14 @@ function Home() {
                 <button
                   key={step.id}
                   onClick={() => {
-                    if (isPast) {
-                      if (step.id === "idea") setStage("idea");
-                      if (step.id === "survey" && survey) setStage("survey");
-                    }
+                    if (step.id === "idea") setStage("idea");
+                    else if (step.id === "survey" && survey) setStage("survey");
+                    else if (step.id === "blueprint") openDirectlyInStudio();
                   }}
-                  disabled={!isPast && !isActive}
                   className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-xs transition-all ${
                     isActive
                       ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                      : isPast
-                        ? "text-teal-400 hover:bg-background/80 cursor-pointer"
-                        : "text-muted-foreground/50 cursor-default"
+                      : "text-muted-foreground hover:text-teal-400 hover:bg-background/80 cursor-pointer"
                   }`}
                 >
                   <Icon className="size-3" />
@@ -544,7 +578,7 @@ function Home() {
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="secondary"
                   onClick={() => {
@@ -560,6 +594,18 @@ function Home() {
                   <FolderGit2 className="size-3.5" />
                   {codebaseContext && user ? "Repo Synced" : "Sync Repo"}
                 </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={openDirectlyInStudio}
+                  disabled={busy}
+                  className="font-mono text-xs gap-1.5 border-teal-500/40 text-teal-400 hover:bg-teal-500/10"
+                  title="Skip survey and open directly in Studio AI Builder to edit code or existing repository"
+                >
+                  <Sparkles className="size-3.5 text-teal-400" />
+                  Open in Studio
+                </Button>
+
                 <Button onClick={runSurvey} disabled={busy || idea.trim().length < 3}>
                   {busy && stage === "survey" ? (
                     <Loader2 className="animate-spin" />

@@ -78,9 +78,15 @@ export function LovableStudioBuilder({
     {
       id: "init",
       role: "assistant",
-      text: `I've initialized the architecture and foundational deliverables for **${ideaTitle}**. You can inspect the live component preview, browse code files, or prompt me to build and refine specific features.`,
+      text: repoFullName
+        ? `I've loaded **${repoFullName}** (${files.length} files). Tell me what changes, new pages, or bug fixes you'd like me to build!`
+        : `I've initialized the architecture and workspace for **${ideaTitle}**. Tell me what you'd like to build next!`,
     },
   ]);
+
+  useEffect(() => {
+    setFiles(initialFiles);
+  }, [initialFiles]);
 
   const [prModalOpen, setPrModalOpen] = useState(false);
   const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
