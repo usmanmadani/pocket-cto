@@ -171,7 +171,7 @@ export function GitHubSyncModal({
       };
 
       if (res.ok && result.success && result.codebaseContext) {
-        onRepoSynced(result.codebaseContext);
+        onRepoSynced?.(result.codebaseContext);
         onOpenChange(false);
       } else {
         setError(result.error || "Failed to sync codebase context.");

@@ -40,7 +40,7 @@ export function GitControlBar({
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error" | "info";
     text: string;
-    url?: string;
+    url?: string | undefined;
   } | null>(null);
   const [branch, setBranch] = useState("main");
 
