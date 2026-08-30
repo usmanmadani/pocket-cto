@@ -479,22 +479,42 @@ function Home() {
                 </Button>
                 <Button asChild variant="ghost" size="sm" className="font-mono text-xs">
                   <Link to="/history">
-                    <History /> History
+                    <History className="size-3.5" /> History
                   </Link>
                 </Button>
+                <Link
+                  to="/profile"
+                  className="flex items-center gap-2 rounded-full border border-border/80 bg-background/60 p-1 pr-2.5 font-mono text-xs text-foreground hover:border-primary transition-all group"
+                  title="View Profile & Synced Accounts"
+                >
+                  {user?.user_metadata?.["avatar_url"] || user?.user_metadata?.["picture"] ? (
+                    <img
+                      src={user?.user_metadata?.["avatar_url"] || user?.user_metadata?.["picture"]}
+                      alt={user?.user_metadata?.["full_name"] || "User"}
+                      className="size-6 rounded-full object-cover border border-primary/40"
+                    />
+                  ) : (
+                    <div className="flex size-6 items-center justify-center rounded-full bg-primary/20 text-primary font-bold text-[10px]">
+                      {(user?.email || "U").slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="truncate max-w-[100px] text-[11px] font-medium group-hover:text-primary transition-colors">
+                    {user?.user_metadata?.["display_name"] || user?.user_metadata?.["full_name"] || user.email?.split("@")[0]}
+                  </span>
+                </Link>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="font-mono text-xs"
                   onClick={signOut}
                 >
-                  <LogOut /> Sign out
+                  <LogOut className="size-3.5" /> Sign out
                 </Button>
               </>
             ) : (
               <Button asChild variant="secondary" size="sm" className="font-mono text-xs">
                 <Link to="/auth">
-                  <LogIn /> Sign in
+                  <LogIn className="size-3.5" /> Sign in
                 </Link>
               </Button>
             )}
@@ -1004,7 +1024,18 @@ function Home() {
       <GitHubSyncModal
         open={githubModalOpen}
         onOpenChange={setGithubModalOpen}
-        onRepoSynced={setCodebaseContext}
+        onRepoSynced={(context, allFiles) => {
+          setCodebaseContext(context);
+          if (allFiles && allFiles.length > 0) {
+            const serialized = allFiles
+              .map((f) => `===FILE: ${f.name}===\n${f.content}\n`)
+              .join("\n");
+            setRaw(serialized);
+            setIdea(context.repoName);
+            setStage("blueprint");
+            setView("studio");
+          }
+        }}
         activeContext={codebaseContext}
         onClearContext={() => setCodebaseContext(null)}
       />

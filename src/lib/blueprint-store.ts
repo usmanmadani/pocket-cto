@@ -8,6 +8,17 @@ import type {
 } from "./architect-client";
 
 const KEY = "specengine.projects.v1";
+const CHATS_KEY = "specengine.studio_chats.v1";
+
+export interface StudioChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  tasks?: string[];
+  filesChanged?: string[];
+  migrationSql?: string;
+  timestamp?: string;
+}
 
 export type SavedProject = {
   id: string;
@@ -20,6 +31,7 @@ export type SavedProject = {
   phases?: BuildPhase[] | undefined;
   userFlow?: UserFlowData | undefined;
   codebaseContext?: CodebaseContext | undefined;
+  chatHistory?: StudioChatMessage[] | undefined;
 };
 
 export const CANONICAL_FILES = [
@@ -73,6 +85,50 @@ export function saveProject(
 
 export function deleteProject(id: string) {
   localStorage.setItem(KEY, JSON.stringify(listProjects().filter((p) => p.id !== id)));
+}
+
+/**
+ * Persists studio chat messages for a specific project/idea
+ */
+export function saveStudioChat(projectIdOrIdea: string, chatHistory: StudioChatMessage[]) {
+  if (typeof window === "undefined" || !projectIdOrIdea) return;
+  try {
+    const normalizedKey = slugify(projectIdOrIdea);
+    const existing = JSON.parse(localStorage.getItem(CHATS_KEY) ?? "{}") as Record<string, StudioChatMessage[]>;
+    existing[normalizedKey] = chatHistory;
+    localStorage.setItem(CHATS_KEY, JSON.stringify(existing));
+
+    // Also update project entry if matched
+    const projects = listProjects();
+    const idx = projects.findIndex(
+      (p) => p.id === projectIdOrIdea || slugify(p.idea) === normalizedKey,
+    );
+    if (idx >= 0) {
+      projects[idx].chatHistory = chatHistory;
+      localStorage.setItem(KEY, JSON.stringify(projects));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Retrieves persisted studio chat messages for a specific project/idea
+ */
+export function getStudioChat(projectIdOrIdea: string): StudioChatMessage[] | null {
+  if (typeof window === "undefined" || !projectIdOrIdea) return null;
+  try {
+    const normalizedKey = slugify(projectIdOrIdea);
+    const existing = JSON.parse(localStorage.getItem(CHATS_KEY) ?? "{}") as Record<string, StudioChatMessage[]>;
+    if (existing[normalizedKey] && Array.isArray(existing[normalizedKey])) {
+      return existing[normalizedKey];
+    }
+    const project = getProject(projectIdOrIdea);
+    if (project?.chatHistory) return project.chatHistory;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /** Packages the blueprint deliverables into a single .zip and triggers a download. */
@@ -161,4 +217,3 @@ export async function downloadPackage(
 }
 
 export type { BuildPhase, Survey, UserFlowData };
-

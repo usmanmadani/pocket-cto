@@ -50,7 +50,7 @@ export interface GitHubRepo {
 interface GitHubSyncModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRepoSynced?: ((context: CodebaseContext) => void) | undefined;
+  onRepoSynced?: ((context: CodebaseContext, allFiles?: Array<{ name: string; content: string }>) => void) | undefined;
   activeContext?: CodebaseContext | null | undefined;
   onClearContext?: (() => void) | undefined;
 }
@@ -168,11 +168,12 @@ export function GitHubSyncModal({
       const result = (await res.json()) as {
         success?: boolean;
         codebaseContext?: CodebaseContext;
+        allFiles?: Array<{ name: string; content: string }>;
         error?: string;
       };
 
       if (res.ok && result.success && result.codebaseContext) {
-        onRepoSynced?.(result.codebaseContext);
+        onRepoSynced?.(result.codebaseContext, result.allFiles);
         onOpenChange(false);
       } else {
         setError(result.error || "Failed to sync codebase context.");

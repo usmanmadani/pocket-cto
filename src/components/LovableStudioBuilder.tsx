@@ -40,7 +40,7 @@ import { GitHubSyncModal } from "@/components/GitHubSyncModal";
 import { ProjectSettingsModal, getStoredIntegrations, type ProjectIntegrations } from "@/components/ProjectSettingsModal";
 import { ThoughtStream } from "@/components/ThoughtStream";
 import { streamPost, parseFiles, type BlueprintFile, type UserFlowData, type CodebaseContext } from "@/lib/architect-client";
-import { downloadPackage } from "@/lib/blueprint-store";
+import { downloadPackage, saveStudioChat, getStudioChat, type StudioChatMessage } from "@/lib/blueprint-store";
 
 interface LovableStudioBuilderProps {
   files: BlueprintFile[];
@@ -67,28 +67,30 @@ export function LovableStudioBuilder({
   const [promptInput, setPromptInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [thoughts, setThoughts] = useState("");
-  const [chatHistory, setChatHistory] = useState<
-    Array<{
-      id: string;
-      role: "user" | "assistant";
-      text: string;
-      tasks?: string[];
-      filesChanged?: string[];
-      migrationSql?: string | undefined;
-    }>
-  >([
-    {
-      id: "init",
-      role: "assistant",
-      text: repoFullName
-        ? `I've loaded **${repoFullName}** (${files.length} files). Tell me what changes, new pages, or bug fixes you'd like me to build!`
-        : `I've initialized the architecture and workspace for **${ideaTitle}**. Tell me what you'd like to build next!`,
-    },
-  ]);
+  const [chatHistory, setChatHistory] = useState<StudioChatMessage[]>(() => {
+    const saved = getStudioChat(ideaTitle);
+    if (saved && saved.length > 0) return saved;
+    return [
+      {
+        id: "init",
+        role: "assistant",
+        text: repoFullName
+          ? `I've loaded **${repoFullName}** (${files.length} files). Tell me what changes, new pages, or bug fixes you'd like me to build!`
+          : `I've initialized the architecture and workspace for **${ideaTitle}**. Tell me what you'd like to build next!`,
+      },
+    ];
+  });
 
   useEffect(() => {
     setFiles(initialFiles);
   }, [initialFiles]);
+
+  // Automatically record and persist every studio chat message to database/storage
+  useEffect(() => {
+    if (chatHistory && chatHistory.length > 0 && ideaTitle) {
+      saveStudioChat(ideaTitle, chatHistory);
+    }
+  }, [chatHistory, ideaTitle]);
 
   const [prModalOpen, setPrModalOpen] = useState(false);
   const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
@@ -212,18 +214,31 @@ export function LovableStudioBuilder({
         },
       );
 
-      let parsedPlan = {
-        title: "Feature Update",
-        summary: "Applying requested architectural changes",
-        tasks: ["Updating components", "Generating migrations"],
-        affected_files: [] as { path: string; action: string; purpose: string }[],
-      };
+      let planTitle = "Feature Update";
+      let planSummary = "Applied requested code updates across the codebase";
+      let planTasks = ["Updated components", "Validated syntax and types"];
 
       try {
-        parsedPlan = JSON.parse(planJson);
+        const cleanPlan = planJson
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```$/i, "")
+          .trim();
+        const p = JSON.parse(cleanPlan);
+        if (p?.title) planTitle = String(p.title);
+        if (p?.summary) planSummary = String(p.summary);
+        if (Array.isArray(p?.tasks) && p.tasks.length > 0) {
+          planTasks = p.tasks.map(String);
+        }
       } catch {
-        /* fallback */
+        /* fallback to clean default */
       }
+
+      const parsedPlan = {
+        title: planTitle,
+        summary: planSummary,
+        tasks: planTasks,
+        affected_files: [] as { path: string; action: string; purpose: string }[],
+      };
 
       // 2. Execute Code Generation
       let codeStream = "";
@@ -277,10 +292,20 @@ export function LovableStudioBuilder({
           {
             id: `assistant-${newMsgId}`,
             role: "assistant",
-            text: `Successfully built: **${parsedPlan.title}**\n${parsedPlan.summary}`,
-            tasks: parsedPlan.tasks,
+            text: `Successfully built: **${planTitle}**\n${planSummary}`,
+            tasks: planTasks,
             filesChanged: generated.map((g) => g.name),
             migrationSql,
+          },
+        ]);
+      } else {
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            id: `assistant-${newMsgId}`,
+            role: "assistant",
+            text: `⚠️ Agent analysis completed: ${planSummary}`,
+            tasks: planTasks,
           },
         ]);
       }

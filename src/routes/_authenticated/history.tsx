@@ -118,10 +118,15 @@ function HistoryPage() {
             Every package saved to your account. Reopen it or download the zip again.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button asChild variant="secondary" size="sm">
             <Link to="/">
               <ArrowLeft /> New blueprint
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/profile">
+              Profile & Account
             </Link>
           </Button>
           <Button variant="ghost" size="sm" onClick={signOut}>
