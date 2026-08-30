@@ -7,7 +7,7 @@ export interface VercelFilePayload {
 export interface DeploymentConfig {
   projectName: string;
   vercelToken: string;
-  teamId?: string;
+  teamId?: string | undefined;
   envVariables: Record<string, string>;
   files: VercelFilePayload[];
 }

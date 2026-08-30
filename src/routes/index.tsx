@@ -15,6 +15,7 @@ import {
 
   ListOrdered,
   Loader2,
+  ArrowRight,
   LogIn,
   LogOut,
   Sparkles,
@@ -218,7 +219,7 @@ function Home() {
         `# Architecture & Codebase Map: ${codebaseContext.repoName}`,
         ``,
         `## Existing Schemas & Models`,
-        ...(codebaseContext.schemaFiles?.map((f) => `- \`${f.path}\``) ?? ["- Standard project files"]),
+        ...(codebaseContext.keyFiles?.map((f) => `- \`${f.path}\``) ?? ["- Standard project files"]),
         ``,
       ].join("\n");
       setRaw(initialDoc);
@@ -457,6 +458,7 @@ function Home() {
               Pocket CTO
             </span>
           </Link>
+          <div className="flex items-center gap-2">
             <ThemeToggle />
             {user ? (
               <>

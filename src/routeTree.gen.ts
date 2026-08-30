@@ -20,6 +20,7 @@ import { Route as ApiUserFlowRouteImport } from './routes/api/user-flow'
 import { Route as ApiAgentCodeRouteImport } from './routes/api/agent/code'
 import { Route as ApiAgentPlanRouteImport } from './routes/api/agent/plan'
 import { Route as ApiAgentTestsRouteImport } from './routes/api/agent/tests'
+import { Route as ApiDeployVercelRouteImport } from './routes/api/deploy/vercel'
 import { Route as ApiDiagnosticsFixRouteImport } from './routes/api/diagnostics/fix'
 import { Route as ApiGithubCommitRouteImport } from './routes/api/github/commit'
 import { Route as ApiGithubCreateRepoRouteImport } from './routes/api/github/create-repo'
@@ -83,6 +84,11 @@ const ApiAgentTestsRoute = ApiAgentTestsRouteImport.update({
   path: '/api/agent/tests',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDeployVercelRoute = ApiDeployVercelRouteImport.update({
+  id: '/api/deploy/vercel',
+  path: '/api/deploy/vercel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDiagnosticsFixRoute = ApiDiagnosticsFixRouteImport.update({
   id: '/api/diagnostics/fix',
   path: '/api/diagnostics/fix',
@@ -135,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/api/agent/code': typeof ApiAgentCodeRoute
   '/api/agent/plan': typeof ApiAgentPlanRoute
   '/api/agent/tests': typeof ApiAgentTestsRoute
+  '/api/deploy/vercel': typeof ApiDeployVercelRoute
   '/api/diagnostics/fix': typeof ApiDiagnosticsFixRoute
   '/api/github/commit': typeof ApiGithubCommitRoute
   '/api/github/create-repo': typeof ApiGithubCreateRepoRoute
@@ -155,6 +162,7 @@ export interface FileRoutesByTo {
   '/api/agent/code': typeof ApiAgentCodeRoute
   '/api/agent/plan': typeof ApiAgentPlanRoute
   '/api/agent/tests': typeof ApiAgentTestsRoute
+  '/api/deploy/vercel': typeof ApiDeployVercelRoute
   '/api/diagnostics/fix': typeof ApiDiagnosticsFixRoute
   '/api/github/commit': typeof ApiGithubCommitRoute
   '/api/github/create-repo': typeof ApiGithubCreateRepoRoute
@@ -177,6 +185,7 @@ export interface FileRoutesById {
   '/api/agent/code': typeof ApiAgentCodeRoute
   '/api/agent/plan': typeof ApiAgentPlanRoute
   '/api/agent/tests': typeof ApiAgentTestsRoute
+  '/api/deploy/vercel': typeof ApiDeployVercelRoute
   '/api/diagnostics/fix': typeof ApiDiagnosticsFixRoute
   '/api/github/commit': typeof ApiGithubCommitRoute
   '/api/github/create-repo': typeof ApiGithubCreateRepoRoute
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/api/agent/code'
     | '/api/agent/plan'
     | '/api/agent/tests'
+    | '/api/deploy/vercel'
     | '/api/diagnostics/fix'
     | '/api/github/commit'
     | '/api/github/create-repo'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/api/agent/code'
     | '/api/agent/plan'
     | '/api/agent/tests'
+    | '/api/deploy/vercel'
     | '/api/diagnostics/fix'
     | '/api/github/commit'
     | '/api/github/create-repo'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/api/agent/code'
     | '/api/agent/plan'
     | '/api/agent/tests'
+    | '/api/deploy/vercel'
     | '/api/diagnostics/fix'
     | '/api/github/commit'
     | '/api/github/create-repo'
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   ApiAgentCodeRoute: typeof ApiAgentCodeRoute
   ApiAgentPlanRoute: typeof ApiAgentPlanRoute
   ApiAgentTestsRoute: typeof ApiAgentTestsRoute
+  ApiDeployVercelRoute: typeof ApiDeployVercelRoute
   ApiDiagnosticsFixRoute: typeof ApiDiagnosticsFixRoute
   ApiGithubCommitRoute: typeof ApiGithubCommitRoute
   ApiGithubCreateRepoRoute: typeof ApiGithubCreateRepoRoute
@@ -350,6 +363,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAgentTestsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/deploy/vercel': {
+      id: '/api/deploy/vercel'
+      path: '/api/deploy/vercel'
+      fullPath: '/api/deploy/vercel'
+      preLoaderRoute: typeof ApiDeployVercelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/diagnostics/fix': {
       id: '/api/diagnostics/fix'
       path: '/api/diagnostics/fix'
@@ -431,6 +451,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAgentCodeRoute: ApiAgentCodeRoute,
   ApiAgentPlanRoute: ApiAgentPlanRoute,
   ApiAgentTestsRoute: ApiAgentTestsRoute,
+  ApiDeployVercelRoute: ApiDeployVercelRoute,
   ApiDiagnosticsFixRoute: ApiDiagnosticsFixRoute,
   ApiGithubCommitRoute: ApiGithubCommitRoute,
   ApiGithubCreateRepoRoute: ApiGithubCreateRepoRoute,

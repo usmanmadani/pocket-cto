@@ -9,7 +9,7 @@ export interface OrchestrationRequest {
   sqlMigrations: string[];
   supabaseCredentials?: SupabaseTenantCredentials;
   vercelToken: string;
-  teamId?: string;
+  teamId?: string | undefined;
   githubConfig?: {
     token: string;
     owner: string;
@@ -23,7 +23,7 @@ export interface OrchestrationResult {
   previewUrl: string;
   deploymentId: string;
   databaseReady: boolean;
-  gitCommitSha?: string;
+  gitCommitSha?: string | undefined;
   migrationCount: number;
 }
 
@@ -51,7 +51,7 @@ export async function executeProjectDeploymentFlow(
 
     const existingEnvIdx = allFiles.findIndex((f) => f.path === ".env" || f.path === ".env.local");
     if (existingEnvIdx >= 0) {
-      allFiles[existingEnvIdx].content += `\n${envContent}`;
+      allFiles[existingEnvIdx]!.content += `\n${envContent}`;
     } else {
       allFiles.push({ path: ".env", content: envContent });
     }
