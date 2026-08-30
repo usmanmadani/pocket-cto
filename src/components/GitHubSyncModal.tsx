@@ -13,6 +13,8 @@ import {
   LogOut,
   AlertCircle,
   X,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 import {
   Dialog,
@@ -50,7 +52,7 @@ export interface GitHubRepo {
 interface GitHubSyncModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRepoSynced?: ((context: CodebaseContext, allFiles?: Array<{ name: string; content: string }>) => void) | undefined;
+  onRepoSynced?: ((context: CodebaseContext, allFiles?: Array<{ name: string; content: string }>, directToStudio?: boolean) => void) | undefined;
   activeContext?: CodebaseContext | null | undefined;
   onClearContext?: (() => void) | undefined;
 }
@@ -146,7 +148,7 @@ export function GitHubSyncModal({
   };
 
   // Trigger Sync with the Analyzer Agent
-  const handleSyncCodebase = async () => {
+  const handleSyncCodebase = async (directToStudio = true) => {
     if (!selectedRepo) return;
     setSyncing(true);
     setError(null);
@@ -173,7 +175,7 @@ export function GitHubSyncModal({
       };
 
       if (res.ok && result.success && result.codebaseContext) {
-        onRepoSynced?.(result.codebaseContext, result.allFiles);
+        onRepoSynced?.(result.codebaseContext, result.allFiles, directToStudio);
         onOpenChange(false);
       } else {
         setError(result.error || "Failed to sync codebase context.");
@@ -194,20 +196,19 @@ export function GitHubSyncModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl border-border bg-card p-6 text-card-foreground shadow-2xl sm:rounded-2xl">
-        <DialogHeader className="pb-3 border-b border-border">
+      <DialogContent className="max-w-2xl border-border bg-[#090d16] p-6 text-foreground shadow-2xl sm:rounded-2xl">
+        <DialogHeader className="pb-3 border-b border-border/80">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+              <div className="flex size-10 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary">
                 <Github className="size-5" />
               </div>
               <div className="text-left">
-                <DialogTitle className="text-lg font-semibold tracking-tight">
-                  GitHub Codebase Sync
+                <DialogTitle className="text-lg font-display font-semibold tracking-tight text-foreground">
+                  Connect & Sync GitHub Repository
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
-                  Connect your repository so the architect agent inspects your existing
-                  schemas & migrations.
+                  Inspect your existing repository architecture or launch directly into the Studio to analyze improvements.
                 </DialogDescription>
               </div>
             </div>
@@ -255,7 +256,7 @@ export function GitHubSyncModal({
 
             {!showManualInput ? (
               <div className="flex flex-col items-center gap-3">
-                <Button onClick={handleConnectGitHub} className="gap-2 px-6">
+                <Button onClick={handleConnectGitHub} className="gap-2 px-6 bg-primary text-primary-foreground">
                   <Github className="size-4" /> Connect with GitHub
                 </Button>
                 <button
@@ -343,7 +344,7 @@ export function GitHubSyncModal({
                 placeholder="Search your repositories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 font-mono text-xs bg-background/50"
+                className="pl-10 font-mono text-xs bg-background/50 text-foreground"
               />
             </div>
 
@@ -380,7 +381,7 @@ export function GitHubSyncModal({
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-xs truncate">
+                            <span className="font-medium text-xs truncate text-foreground">
                               {repo.name}
                             </span>
                             {repo.language && (
@@ -406,13 +407,13 @@ export function GitHubSyncModal({
             </div>
 
             {/* Action Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-border">
-              <span className="font-mono text-[11px] text-muted-foreground truncate max-w-[280px]">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-3 border-t border-border/80 gap-2">
+              <span className="font-mono text-[11px] text-muted-foreground truncate max-w-[240px]">
                 {selectedRepo
                   ? `Selected: ${selectedRepo.full_name}`
                   : "Select a repo to proceed"}
               </span>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -423,21 +424,22 @@ export function GitHubSyncModal({
                     className={`size-3.5 ${loadingRepos ? "animate-spin" : ""}`}
                   />
                 </Button>
+
                 <Button
                   disabled={!selectedRepo || syncing}
-                  onClick={handleSyncCodebase}
+                  onClick={() => handleSyncCodebase(true)}
                   size="sm"
-                  className="gap-2"
+                  className="gap-2 bg-gradient-to-r from-primary to-teal-500 font-mono text-xs font-bold text-primary-foreground shadow-md hover:opacity-95"
                 >
                   {syncing ? (
                     <>
                       <Loader2 className="size-3.5 animate-spin" />
-                      Inspecting Codebase...
+                      Syncing & Analyzing...
                     </>
                   ) : (
                     <>
-                      <Code2 className="size-3.5" />
-                      Sync to Pocket CTO
+                      <Sparkles className="size-3.5" />
+                      Launch in Studio & Analyze Architecture
                     </>
                   )}
                 </Button>

@@ -1159,16 +1159,38 @@ function Home() {
       <GitHubSyncModal
         open={githubModalOpen}
         onOpenChange={setGithubModalOpen}
-        onRepoSynced={(context, allFiles) => {
+        onRepoSynced={(context, allFiles, directToStudio = true) => {
           setCodebaseContext(context);
-          if (allFiles && allFiles.length > 0) {
-            const serialized = allFiles
+          if (directToStudio) {
+            const filesToUse: BlueprintFile[] =
+              allFiles && allFiles.length > 0
+                ? allFiles.map((f) => ({ name: f.name, content: f.content }))
+                : context.keyFiles && context.keyFiles.length > 0
+                  ? context.keyFiles.map((f) => ({ name: f.path, content: f.content }))
+                  : [
+                      {
+                        name: "README.md",
+                        content: `# ${context.repoName}\n\nExisting GitHub Repository synced with Pocket CTO.\n\n## Detected Codebase Structure:\n${(context.fileTree || []).slice(0, 80).map((p) => `- ${p}`).join("\n")}`,
+                      },
+                    ];
+
+            const serialized = filesToUse
               .map((f) => `===FILE: ${f.name}===\n${f.content}\n`)
               .join("\n");
+
             setRaw(serialized);
-            setIdea(context.repoName);
+            setIdea(`Repository: ${context.repoName}`);
             setStage("blueprint");
             setView("studio");
+
+            void persist({
+              idea: `Repository: ${context.repoName}`,
+              domain: context.repoName.split("/")[1] || context.repoName,
+              summary: `Existing repository ${context.repoName} with ${filesToUse.length} files synced.`,
+              answers: [],
+              files: filesToUse,
+              codebaseContext: context,
+            });
           }
         }}
         activeContext={codebaseContext}

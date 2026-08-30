@@ -99,6 +99,19 @@ export function LovableStudioBuilder({
     const stored = getStudioChat(ideaTitle);
     if (stored && stored.length > 0) return stored;
 
+    const isExistingRepo = Boolean(repoFullName || codebaseContext?.repoName);
+    if (isExistingRepo) {
+      const repoName = repoFullName || codebaseContext?.repoName || "Connected Repository";
+      const fileCount = codebaseContext?.fileTree?.length || initialFiles.length;
+      return [
+        {
+          id: "init-1",
+          role: "assistant",
+          text: `🔍 **Autonomous Architecture Map & Insights for \`${repoName}\`**\n\nI have ingested and mapped your existing repository (${fileCount} files & schemas). Here is your current architectural overview:\n\n- **📁 File Structure:** Ingested key configurations, router layout, and schemas.\n- **🛡️ Database & Auth:** Ready for Supabase PostgreSQL with Row-Level Security (RLS).\n- **⚡ Real-Time Code Execution:** Ask me to add new features, fix bugs, or build entire screens directly from this chat.\n\n### 💡 Suggested Architectural Enhancements for \`${repoName}\`:\n[OPTION: Option A: Add Supabase Email & Google Auth with RLS | Implement user authentication and secure multi-tenant tables.]\n[OPTION: Option B: Add Stripe Billing & Subscription Tiers | Implement payment checkout flows, customer portal, and billing webhooks.]\n[OPTION: Option C: Refactor & Modernize UI Design System | Apply modern high-contrast Tailwind CSS styling tokens and mobile-first layouts.]\n\nClick any recommendation above or type any custom change to update your codebase!`,
+        },
+      ];
+    }
+
     return [
       {
         id: "init-1",
