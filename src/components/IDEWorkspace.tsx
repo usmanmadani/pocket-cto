@@ -25,6 +25,8 @@ import {
   Layers,
   Wand2,
   X,
+  TestTube2,
+  Code2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,11 +34,12 @@ import { GitControlBar } from "@/components/GitControlBar";
 import { GitPRModal } from "@/components/GitPRModal";
 import { LivePreviewSandbox } from "@/components/LivePreviewSandbox";
 import { UserFlowCanvas } from "@/components/UserFlowCanvas";
+import { MonacoCodeEditor } from "@/components/MonacoCodeEditor";
 import {
   analyzeDeliverables,
   type DiagnosticIssue,
 } from "@/lib/diagnostics-engine";
-import { streamPost, type BlueprintFile, type UserFlowData } from "@/lib/architect-client";
+import { streamPost, parseFiles, type BlueprintFile, type UserFlowData } from "@/lib/architect-client";
 import { downloadPackage } from "@/lib/blueprint-store";
 import { AutonomousBuilderModal } from "@/components/AutonomousBuilderModal";
 import { NewRepoModal } from "@/components/NewRepoModal";
@@ -148,6 +151,59 @@ export function IDEWorkspace({
       setFixLog((prev) => prev + `\n❌ Fix failed: ${String(err)}`);
     } finally {
       setTimeout(() => setFixingIssueId(null), 1500);
+    }
+  };
+
+  const handleFileContentChange = (fileName: string, newContent: string) => {
+    const updated = files.map((f) =>
+      f.name === fileName ? { ...f, content: newContent } : f,
+    );
+    setFiles(updated);
+    if (onUpdateFile) {
+      onUpdateFile(fileName, newContent);
+    }
+  };
+
+  const [generatingTests, setGeneratingTests] = useState(false);
+  const handleSynthesizeTests = async () => {
+    setGeneratingTests(true);
+    let testStream = "";
+    try {
+      await streamPost(
+        "/api/agent/tests",
+        {
+          files,
+          userFlow,
+          ideaTitle,
+          domain,
+        },
+        (event) => {
+          if (event.type === "text") {
+            testStream += event.value;
+          }
+        },
+      );
+
+      const generated = parseFiles(testStream);
+      if (generated.length > 0) {
+        const fileMap = new Map<string, string>();
+        files.forEach((f) => fileMap.set(f.name, f.content));
+        generated.forEach((g) => fileMap.set(g.name, g.content));
+
+        const merged: BlueprintFile[] = Array.from(fileMap.entries()).map(([name, content]) => ({
+          name,
+          content,
+        }));
+
+        setFiles(merged);
+        if (onUpdateFile) {
+          generated.forEach((g) => onUpdateFile(g.name, g.content));
+        }
+      }
+    } catch (err) {
+      console.error("Test synthesis error:", err);
+    } finally {
+      setGeneratingTests(false);
     }
   };
 
@@ -296,6 +352,22 @@ export function IDEWorkspace({
               <Button
                 variant="outline"
                 size="sm"
+                onClick={handleSynthesizeTests}
+                disabled={generatingTests || !files.length}
+                className="h-7 gap-1.5 font-mono text-xs border-border/80 text-foreground hover:bg-background/80"
+                title="Synthesize automated Vitest unit tests, Playwright E2E tests, and schema integrity validation suites"
+              >
+                {generatingTests ? (
+                  <Loader2 className="size-3 animate-spin text-primary" />
+                ) : (
+                  <TestTube2 className="size-3 text-purple-400" />
+                )}
+                Synthesize Tests
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setNewRepoModalOpen(true)}
                 className="h-7 gap-1.5 font-mono text-xs border-border/80 text-foreground hover:bg-background/80"
                 title="Create a new GitHub repository and push current codebase"
@@ -305,54 +377,29 @@ export function IDEWorkspace({
               </Button>
 
               {activeTab === "editor" && (
-                <>
-                  <div className="relative">
-                    <Search className="size-3.5 absolute left-2.5 top-2 text-muted-foreground" />
-                    <Input
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Find in file..."
-                      className="h-7 w-36 pl-8 font-mono text-[11px] bg-background/50 border-border/70"
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopyCode}
-                    className="h-7 gap-1.5 font-mono text-xs"
-                  >
-                    {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
-                    {copied ? "Copied" : "Copy"}
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyCode}
+                  className="h-7 gap-1.5 font-mono text-xs"
+                >
+                  {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+                  {copied ? "Copied" : "Copy"}
+                </Button>
               )}
             </div>
           </div>
 
           {/* Tab Views */}
-          <div className="flex-1 overflow-auto">
-            {/* View 1: Code Editor View */}
+          <div className="flex-1 overflow-hidden min-h-[480px]">
+            {/* View 1: Monaco Code Editor View */}
             {activeTab === "editor" && activeFile && (
-              <div className="flex h-full min-h-[460px] font-mono text-xs leading-relaxed">
-                {/* Line Numbers Column */}
-                <div className="w-12 select-none border-r border-border/50 bg-[#060913] py-4 text-right pr-3 text-muted-foreground/40 space-y-0.5">
-                  {lines.map((_, i) => (
-                    <div key={i} className="text-[11px] h-5 leading-5">
-                      {i + 1}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Code Content Area */}
-                <div className="flex-1 p-4 overflow-x-auto text-slate-200 selection:bg-primary/30">
-                  <pre className="text-[12px] leading-5 whitespace-pre-wrap">
-                    {searchQuery
-                      ? lines
-                          .filter((l) => l.toLowerCase().includes(searchQuery.toLowerCase()))
-                          .join("\n")
-                      : activeFile.content}
-                  </pre>
-                </div>
+              <div className="h-[520px] w-full">
+                <MonacoCodeEditor
+                  fileName={activeFile.name}
+                  value={activeFile.content}
+                  onChange={(newVal) => handleFileContentChange(activeFile.name, newVal)}
+                />
               </div>
             )}
 
