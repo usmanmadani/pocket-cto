@@ -509,6 +509,7 @@ export function IDEWorkspace({
         open={builderModalOpen}
         onOpenChange={setBuilderModalOpen}
         files={files}
+        userFlow={userFlow}
         onFilesUpdated={(updatedFiles) => {
           setFiles(updatedFiles);
           if (onUpdateFile && updatedFiles.length > 0) {

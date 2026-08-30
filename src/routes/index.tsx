@@ -823,6 +823,8 @@ function Home() {
         open={builderModalOpen}
         onOpenChange={setBuilderModalOpen}
         files={files}
+        userFlow={userFlow}
+        codebaseContext={codebaseContext}
         onFilesUpdated={(updatedFiles) => {
           setRaw(
             updatedFiles
