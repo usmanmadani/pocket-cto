@@ -30,12 +30,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { LivePreviewSandbox } from "@/components/LivePreviewSandbox";
+import { LivePreviewPane } from "@/components/LivePreviewPane";
 import { MonacoCodeEditor } from "@/components/MonacoCodeEditor";
 import { UserFlowCanvas } from "@/components/UserFlowCanvas";
 import { GitControlBar } from "@/components/GitControlBar";
 import { GitPRModal } from "@/components/GitPRModal";
 import { NewRepoModal } from "@/components/NewRepoModal";
 import { GitHubSyncModal } from "@/components/GitHubSyncModal";
+import { ProjectSettingsModal, getStoredIntegrations, type ProjectIntegrations } from "@/components/ProjectSettingsModal";
 import { ThoughtStream } from "@/components/ThoughtStream";
 import { streamPost, parseFiles, type BlueprintFile, type UserFlowData, type CodebaseContext } from "@/lib/architect-client";
 import { downloadPackage } from "@/lib/blueprint-store";
@@ -91,6 +93,10 @@ export function LovableStudioBuilder({
   const [prModalOpen, setPrModalOpen] = useState(false);
   const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [integrations, setIntegrations] = useState<ProjectIntegrations>(getStoredIntegrations());
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
   const [autoSync, setAutoSync] = useState(false);
   const [copiedMigration, setCopiedMigration] = useState(false);
 
@@ -107,6 +113,64 @@ export function LovableStudioBuilder({
   }, [files]);
 
   const latestMigration = sqlFiles[0]?.content || "";
+
+  const handleDeployToVercel = async () => {
+    setIsDeploying(true);
+    try {
+      const res = await fetch("/api/deploy/vercel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectName: ideaTitle,
+          generatedFiles: files.map((f) => ({ path: f.name, content: f.content })),
+          sqlMigrations: sqlFiles.map((s) => s.content),
+          supabaseCredentials: integrations.supabaseUrl
+            ? {
+                supabaseUrl: integrations.supabaseUrl,
+                anonKey: integrations.supabaseAnonKey,
+              }
+            : undefined,
+          vercelToken: integrations.vercelToken,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.error) {
+        setSettingsModalOpen(true);
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            id: `err-${Date.now()}`,
+            role: "assistant",
+            text: `⚠️ Deployment Notice: ${data.error}. Please ensure your Vercel Token is configured in Settings.`,
+          },
+        ]);
+      } else if (data.previewUrl) {
+        setPreviewUrl(data.previewUrl);
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            id: `deploy-${Date.now()}`,
+            role: "assistant",
+            text: `🚀 **Live Vercel Preview Deployed!**\nPreview URL: [${data.previewUrl}](${data.previewUrl})\n${
+              data.databaseReady ? "✅ Connected to your custom Supabase database." : ""
+            }`,
+          },
+        ]);
+      }
+    } catch (err: any) {
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          text: `⚠️ Deployment error: ${err?.message || String(err)}`,
+        },
+      ]);
+    } finally {
+      setIsDeploying(false);
+    }
+  };
 
   const handleFileChange = (name: string, content: string) => {
     const updated = files.map((f) => (f.name === name ? { ...f, content } : f));
@@ -316,6 +380,17 @@ export function LovableStudioBuilder({
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setSettingsModalOpen(true)}
+            className="h-7 gap-1.5 font-mono text-xs border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+            title="Configure your Supabase Database credentials (BYOK) and Vercel Token"
+          >
+            <ShieldCheck className="size-3 text-cyan-400" />
+            {integrations.supabaseUrl ? "Supabase Connected" : "Connect Supabase / Vercel"}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setNewRepoModalOpen(true)}
             className="h-7 gap-1.5 font-mono text-xs border-border/80 text-foreground hover:bg-background/80"
           >
@@ -466,11 +541,12 @@ export function LovableStudioBuilder({
           {/* VIEW 1: INTERACTIVE LIVE PREVIEW */}
           {activeTab === "preview" && (
             <div className="flex-1 p-3 overflow-hidden">
-              <LivePreviewSandbox
-                files={files}
-                userFlow={userFlow}
-                ideaTitle={ideaTitle}
-                domain={domain}
+              <LivePreviewPane
+                previewUrl={previewUrl}
+                isDeploying={isDeploying}
+                onDeployToVercel={handleDeployToVercel}
+                supabaseConnected={Boolean(integrations.supabaseUrl)}
+                onOpenSettings={() => setSettingsModalOpen(true)}
               />
             </div>
           )}
@@ -562,6 +638,12 @@ export function LovableStudioBuilder({
       </div>
 
       {/* Modals */}
+      <ProjectSettingsModal
+        open={settingsModalOpen}
+        onOpenChange={setSettingsModalOpen}
+        onSaved={(cfg) => setIntegrations(cfg)}
+      />
+
       <NewRepoModal
         open={newRepoModalOpen}
         onOpenChange={setNewRepoModalOpen}

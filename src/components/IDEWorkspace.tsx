@@ -33,8 +33,10 @@ import { Input } from "@/components/ui/input";
 import { GitControlBar } from "@/components/GitControlBar";
 import { GitPRModal } from "@/components/GitPRModal";
 import { LivePreviewSandbox } from "@/components/LivePreviewSandbox";
+import { LivePreviewPane } from "@/components/LivePreviewPane";
 import { UserFlowCanvas } from "@/components/UserFlowCanvas";
 import { MonacoCodeEditor } from "@/components/MonacoCodeEditor";
+import { ProjectSettingsModal, getStoredIntegrations, type ProjectIntegrations } from "@/components/ProjectSettingsModal";
 import {
   analyzeDeliverables,
   type DiagnosticIssue,
@@ -71,6 +73,10 @@ export function IDEWorkspace({
   const [prModalOpen, setPrModalOpen] = useState(false);
   const [builderModalOpen, setBuilderModalOpen] = useState(false);
   const [newRepoModalOpen, setNewRepoModalOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [integrations, setIntegrations] = useState<ProjectIntegrations>(getStoredIntegrations());
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
   const [autoSync, setAutoSync] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(true);
   const [fixingIssueId, setFixingIssueId] = useState<string | null>(null);
@@ -82,6 +88,49 @@ export function IDEWorkspace({
   }, [initialFiles]);
 
   const activeFile = files[Math.min(activeFileIndex, Math.max(files.length - 1, 0))];
+
+  // Extract SQL migrations and schemas
+  const sqlFiles = useMemo(() => {
+    return files.filter(
+      (f) =>
+        f.name.toLowerCase().endsWith(".sql") ||
+        f.name.toLowerCase().includes("schema") ||
+        f.name.toLowerCase().includes("migration"),
+    );
+  }, [files]);
+
+  const handleDeployToVercel = async () => {
+    setIsDeploying(true);
+    try {
+      const res = await fetch("/api/deploy/vercel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectName: ideaTitle,
+          generatedFiles: files.map((f) => ({ path: f.name, content: f.content })),
+          sqlMigrations: sqlFiles.map((s) => s.content),
+          supabaseCredentials: integrations.supabaseUrl
+            ? {
+                supabaseUrl: integrations.supabaseUrl,
+                anonKey: integrations.supabaseAnonKey,
+              }
+            : undefined,
+          vercelToken: integrations.vercelToken,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.error) {
+        setSettingsModalOpen(true);
+      } else if (data.previewUrl) {
+        setPreviewUrl(data.previewUrl);
+      }
+    } catch (err) {
+      console.error("Vercel deployment failed:", err);
+    } finally {
+      setIsDeploying(false);
+    }
+  };
 
   // Run real-time diagnostics
   const diagnostics = useMemo(() => {
@@ -368,6 +417,17 @@ export function IDEWorkspace({
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setSettingsModalOpen(true)}
+                className="h-7 gap-1.5 font-mono text-xs border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+                title="Configure your Supabase Database credentials (BYOK) and Vercel Token"
+              >
+                <ShieldCheck className="size-3 text-cyan-400" />
+                {integrations.supabaseUrl ? "Supabase" : "DB & Vercel"}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setNewRepoModalOpen(true)}
                 className="h-7 gap-1.5 font-mono text-xs border-border/80 text-foreground hover:bg-background/80"
                 title="Create a new GitHub repository and push current codebase"
@@ -406,11 +466,12 @@ export function IDEWorkspace({
             {/* View 2: Live Preview View */}
             {activeTab === "preview" && (
               <div className="h-full p-3">
-                <LivePreviewSandbox
-                  files={files}
-                  userFlow={userFlow}
-                  ideaTitle={ideaTitle}
-                  domain={domain}
+                <LivePreviewPane
+                  previewUrl={previewUrl}
+                  isDeploying={isDeploying}
+                  onDeployToVercel={handleDeployToVercel}
+                  supabaseConnected={Boolean(integrations.supabaseUrl)}
+                  onOpenSettings={() => setSettingsModalOpen(true)}
                 />
               </div>
             )}
@@ -574,6 +635,13 @@ export function IDEWorkspace({
         onOpenChange={setNewRepoModalOpen}
         files={files}
         defaultName={ideaTitle.slice(0, 24)}
+      />
+
+      {/* Cloud Integrations / Supabase Settings Modal */}
+      <ProjectSettingsModal
+        open={settingsModalOpen}
+        onOpenChange={setSettingsModalOpen}
+        onSaved={(cfg) => setIntegrations(cfg)}
       />
     </div>
   );
