@@ -123,9 +123,10 @@ export function GitHubSyncModal({
 
     const redirectUri = `${window.location.origin}/api/auth/github/callback`;
     const scope = "repo read:user";
+    const state = window.location.pathname;
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(
       redirectUri,
-    )}&scope=${encodeURIComponent(scope)}`;
+    )}&scope=${encodeURIComponent(scope)}&state=${encodeURIComponent(state)}`;
   };
 
   const handleManualTokenSubmit = (e: React.FormEvent) => {

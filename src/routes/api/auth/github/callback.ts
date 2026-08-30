@@ -84,8 +84,11 @@ export const Route = createFileRoute("/api/auth/github/callback")({
               ? `&auth_user=${encodeURIComponent(JSON.stringify(customUser))}`
               : "";
 
+            const state = url.searchParams.get("state");
+            const targetPath = state && state.startsWith("/") ? state : "/history";
+
             return Response.redirect(
-              `${origin}/history?github_token=${encodeURIComponent(data.access_token)}${userParam}`,
+              `${origin}${targetPath}?github_token=${encodeURIComponent(data.access_token)}${userParam}`,
               302,
             );
           }

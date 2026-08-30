@@ -144,7 +144,7 @@ function AuthPage() {
     const scope = "read:user user:email repo";
     window.location.href = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(
       redirectUri,
-    )}&scope=${encodeURIComponent(scope)}`;
+    )}&scope=${encodeURIComponent(scope)}&state=/history`;
   };
 
   return (
